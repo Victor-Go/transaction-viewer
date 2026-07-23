@@ -1,226 +1,122 @@
 # Dependency Rules
 
-## Purpose
+## Direction
 
-These rules protect business logic from framework, transport, persistence, and UI coupling. Directory names are secondary; the dependency direction is the enforceable design constraint.
+Dependencies point from delivery and technical details toward business
+abstractions:
 
-## Workspace-Level Rules
+```text
+Web ───────────────> Contracts <────────────── HTTP
+                                               │
+Infrastructure ─────> Application ─────────> Domain
+```
+
+HTTP and infrastructure are sibling adapters. Infrastructure implements ports
+owned by application; HTTP invokes application use cases. Neither adapter owns
+business policy.
+
+## Workspace Boundaries
 
 Allowed:
 
-- `apps/api` may import `@card-platform/contracts`.
-- `apps/web` may import `@card-platform/contracts`.
-- API and Web may import third-party libraries appropriate to their runtime.
+- `apps/api` and `apps/web` importing `@card-platform/contracts`.
+- Each workspace importing third-party libraries appropriate to its runtime.
+- Path aliases resolving only within the same workspace.
 
 Forbidden:
 
-- `packages/contracts` importing from `apps/api`.
-- `packages/contracts` importing from `apps/web`.
-- `apps/web` importing backend domain, application, infrastructure, or HTTP modules.
-- Cross-workspace imports through relative filesystem paths.
-- TypeScript `paths` entries that impersonate pnpm workspace packages.
+- Contracts importing API or Web.
+- Web importing any backend layer.
+- Relative filesystem imports across workspaces.
+- TypeScript path aliases impersonating pnpm workspace packages.
 
-Use `workspace:*` for local package dependencies. Path aliases are allowed only within one workspace package.
+Declare cross-workspace dependencies with `workspace:*`.
 
-## Backend Module Rules
-
-Assume a module structure containing `domain`, `application`, `infrastructure`, and `http`.
+## Backend Boundaries
 
 ### Domain
 
-May depend on:
-
-- TypeScript and JavaScript standard language features.
-- Other domain files within the same module.
-- Carefully justified shared domain primitives if such a package exists later.
-
-Must not depend on:
-
-- Express.
-- HTTP status codes or headers.
-- Zod HTTP contract schemas.
-- Filesystem APIs.
-- Database clients or ORMs.
-- Environment variables.
-- React or browser APIs.
-- Infrastructure implementations.
-
-Domain entities and functions receive all information required to make a business decision through arguments, constructors, or domain collaborators. They do not query persistence directly.
+Domain may use language features and other domain code in its module. It must
+not depend on Express, HTTP concepts, transport schemas, filesystem APIs, environment variables, React, browser APIs, or infrastructure
+implementations. Business decisions receive required information through
+arguments or domain collaborators.
 
 ### Application
 
-May depend on:
-
-- Domain entities, value objects, and domain errors.
-- Ports or interfaces required by use cases.
-- Other application files within the same module.
-
-Must not depend on:
-
-- Express request or response objects.
-- Route params or query objects.
-- HTTP status codes.
-- Concrete filesystem or database implementations.
-- React or browser APIs.
-
-Application use cases may query persistence only through injected repository or gateway interfaces.
+Application may depend on domain types and ports owned by its use cases. It
+must not depend on Express objects, route/query representations, HTTP status
+codes, JSON or database implementation details, concrete adapters, React, or
+browser APIs. Persistence is accessed through injected ports.
 
 ### Infrastructure
 
-May depend on:
-
-- Domain types required for mapping.
-- Application ports it implements.
-- Filesystem APIs, database clients, or external SDKs.
-
-Must not:
-
-- Decide public HTTP response shapes.
-- Contain controller behavior.
-- Expose persistence records directly as public DTOs.
-- Import frontend code.
-
-Infrastructure converts between persistence records and domain models through explicit mappers where the representations differ.
+Infrastructure may depend inward on application ports and domain types and may
+use filesystem APIs or external SDKs. It maps technical records to
+internal models. It must not decide HTTP responses, contain controller behavior,
+or expose persistence records as public DTOs.
 
 ### HTTP
 
-May depend on:
+HTTP may depend on Express, shared contracts, application use cases, and
+internal error types needed for mapping. It validates and maps transport input,
+invokes use cases, presents contract-shaped output, and centrally maps known
+failures. It must not access persistence, implement business rules, mutate
+domain state directly, or leak infrastructure failures.
 
-- Express.
-- Shared HTTP contracts.
-- Application use cases.
-- Domain/application error types required for mapping.
-- Presenters or DTO mappers.
+## Frontend Boundaries
 
-Must not:
+- `shared/api` owns generic Fetch transport, safe response parsing, abort,
+  network, protocol, and HTTP error normalization. It does not choose
+  feature-specific meaning or UI behavior.
+- `features/<feature>/api` calls endpoints through `shared/api`.
+- `features/<feature>/model` coordinates hooks and feature state without
+  becoming the final authority for backend business rules.
+- `features/<feature>/ui` renders user-visible behavior and consumes feature
+  model/API abstractions. It does not branch on human-readable error messages.
 
-- Read or write persistence directly.
-- Reimplement domain rules.
-- Mutate entity state outside an application use case.
-- Return persistence records without protocol mapping.
-- Create inconsistent one-off error envelopes.
+## Public Error Boundary
 
-## Frontend Rules
+Keep these concepts separate:
 
-### `features/<feature>/api`
-
-May depend on:
-
-- `shared/api`.
-- `@card-platform/contracts`.
-
-Must not:
-
-- Render UI.
-- Manage React component state.
-- Import backend modules.
-
-### `features/<feature>/model`
-
-May depend on:
-
-- Feature API functions.
-- Contract types.
-- React hooks.
-
-Must not:
-
-- Duplicate backend domain authorization or eligibility rules as the final authority.
-- Handle raw Fetch responses directly when the shared API client already standardizes them.
-
-### `features/<feature>/ui`
-
-May depend on:
-
-- Feature model/hooks.
-- Contract or view-model types.
-- Shared UI components.
-
-Must not:
-
-- Call persistence.
-- Import Express or backend modules.
-- Match error-message text to make program decisions.
-
-### `shared/api`
-
-Responsible for transport-level behavior:
-
-- Calling native Fetch.
-- Applying common headers.
-- Checking HTTP success.
-- Parsing optional JSON safely.
-- Distinguishing abort, network, protocol, and HTTP errors.
-- Preserving stable public API error codes.
-
-Must not:
-
-- Render toasts.
-- Navigate.
-- Mutate React state.
-- Choose feature-specific user-facing messages.
-
-## Contract Rules
-
-`packages/contracts` is the public protocol boundary.
-
-It may contain:
-
-- Zod schemas for requests, responses, query parameters, and public errors.
-- TypeScript types inferred from those schemas.
-- Stable API machine values.
-
-It must not contain:
-
-- Backend entities with behavior.
-- Repository interfaces.
-- Use cases.
-- Express middleware.
-- React hooks or components.
-- Persistence record schemas unless the persistence format is itself a public protocol, which it is not here.
-
-Do not maintain a manually duplicated TypeScript interface and Zod schema for the same public shape unless the difference is explicit and documented.
-
-## Error Dependency Rules
-
-Keep these layers separate:
-
-1. Domain/application error type.
-2. HTTP error mapping.
-3. Stable public API error code.
-4. HTTP status code.
+1. Domain or application error type.
+2. HTTP adapter mapping.
+3. Stable public error code from `@card-platform/contracts`.
+4. HTTP status.
 5. Human-readable message.
 
-Example conceptual mapping:
+Internal errors contain no HTTP status. HTTP adapters select the public code and
+status by stable error type, never by matching message text. Infrastructure
+details are not public. Unknown failures use the safe, centrally defined
+`INTERNAL_ERROR` response. Clients branch on stable codes or typed transport
+categories, not messages.
 
-- Domain/application failure: transaction is not reversible.
-- Public code: `TRANSACTION_NOT_REVERSIBLE`.
-- HTTP status: `409`.
-- Message: explanatory text for the caller.
+## Review Questions
 
-The domain must not import public API error codes or HTTP status codes.
+- Can domain code run without Express, transport schemas, or persistence?
+- Can persistence be replaced without changing controllers or business rules?
+- Does every cross-workspace import have a declared workspace dependency?
+- Are public DTOs defined once in contracts and mapped at boundaries?
+- Are known errors mapped centrally at the HTTP boundary?
 
-The frontend must branch on stable public error codes or typed error categories, not human-readable messages.
+## Current Persistence Boundary
 
-## Database and Persistence Context
+JSON-file persistence is the required concrete implementation for the current
+assignment.
 
-Domain entities do not obtain database connections.
+Allowed:
 
-The outer application bootstrap creates technical clients and adapters, then injects them inward:
+- Infrastructure reading and validating JSON files.
+- Infrastructure mapping JSON records to domain models.
+- Application use cases depending on repository ports.
+- Composition code injecting the JSON repository into use cases.
 
-- Database pool or file path into repository implementation.
-- Repository implementation into application use case.
-- Use case into HTTP controller.
+Forbidden:
 
-If one use case later needs a single atomic transaction across multiple repositories, prefer an explicit Unit of Work callback or context. Do not introduce request-global or AsyncLocalStorage-based database context until a concrete need justifies the hidden dependency.
+- Domain or application code importing filesystem APIs or JSON record schemas.
+- Controllers reading JSON files directly.
+- Public contracts exposing persistence record shapes.
+- Adding a database, ORM, migrations, Unit of Work, or database-specific
+  abstractions without an explicit requirement change.
 
-## Review Checklist
-
-Before accepting a change, verify:
-
-- Could the domain code run without Express and without a database?
-- Could Express be replaced without changing domain/application code?
-- Could JSON persistence be replaced without changing the controller or domain rules?
-- Does every cross-workspace import correspond to a declared workspace dependency?
-- Are public DTOs defined in contracts rather than copied separately in API and Web?
-- Are known errors mapped in one HTTP boundary rather than scattered across controllers?
+The repository port preserves the option to replace the JSON adapter later; it
+does not justify implementing alternative persistence now.

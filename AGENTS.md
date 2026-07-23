@@ -1,182 +1,152 @@
 # Card Platform Repository Instructions
 
-## Purpose
+## Purpose and Scope
 
-This repository is an extensible card-platform monorepo. The Transaction Viewer is the first implemented business module, not the architectural boundary of the system.
+This repository is an extensible card-platform monorepo. Transaction Viewer is
+the first business module, not the architectural boundary of the product.
 
-The current deployable applications are:
-
-- `apps/api`: Express API application.
-- `apps/web`: React/Vite web application.
-
-The current shared workspace package is:
-
-- `packages/contracts`: shared external HTTP contracts used by both API and Web.
-
-Read the relevant architecture documents before changing application structure or observable behavior:
+Read the architecture documents before changing structure or observable
+behavior:
 
 - `docs/architecture/overview.md`
 - `docs/architecture/dependency-rules.md`
 - `docs/architecture/testing-strategy.md`
 
+Before editing a file, apply this root guidance and every `AGENTS.md` from the
+repository root down to that file. The closest file supplies workspace-specific
+rules. When guidance conflicts, follow the closest applicable file unless it
+would violate a repository-wide dependency rule.
+
 ## Repository Map
 
-### `apps/api`
+- `apps/api`: Express application, backend business modules, HTTP composition,
+  and infrastructure assembly. See `apps/api/AGENTS.md`.
+- `apps/web`: React/Vite browser application and feature-oriented UI. See
+  `apps/web/AGENTS.md`.
+- `packages/contracts`: shared public HTTP contracts used by API and Web. See
+  `packages/contracts/AGENTS.md`.
+- `tests/e2e`: high-value Playwright tests for complete user journeys.
 
-Contains the backend application and backend business modules.
+Use feature-first organization. Backend modules belong under
+`apps/api/src/modules/<module>`; frontend features belong under
+`apps/web/src/features/<feature>`. Do not add a workspace package without a real
+cross-application consumer or justified independent build boundary.
 
-Business modules are organized under:
+## Global Boundaries
 
-- `apps/api/src/modules/<module>`
+- API and Web may depend on `@card-platform/contracts`.
+- Contracts must not depend on API or Web.
+- Web must not import backend domain, application, infrastructure, or HTTP code.
+- Backend dependencies point inward: HTTP and infrastructure adapt application
+  and domain abstractions; domain remains independent of frameworks, transport,
+  persistence, and UI.
+- Use declared pnpm workspace dependencies for cross-workspace imports. Use
+  path aliases only within one workspace.
+- Keep `apps/api/src/app.ts` responsible for creating and exporting the Express
+  application and `apps/api/src/server.ts` responsible for starting the
+  listener. Importing the app in tests must not open a port.
 
-A backend module may contain:
+Do not introduce unrequested frameworks, databases, infrastructure platforms,
+workspace packages, or architectural patterns.
 
-- `domain`: entities, value objects, invariants, domain services, and domain errors.
-- `application`: use cases, orchestration, and ports required by the use cases.
-- `infrastructure`: persistence and external-system adapters.
-- `http`: Express routes, controllers, presenters, request mapping, and HTTP error mapping.
+## Current Persistence Scope
 
-### `apps/web`
+The current assignment requires JSON-file persistence. Treat JSON as the active
+and required persistence mechanism for all assignment features.
 
-Contains the browser application.
+Preserve replacement flexibility through application-owned repository ports and
+infrastructure adapters, but do not introduce a database, ORM, migration system,
+database client, Unit of Work, or database-oriented abstraction unless the
+requirements explicitly change.
 
-Frontend business features are organized under:
+Future persistence replacement is an architectural possibility, not current
+implementation scope.
 
-- `apps/web/src/features/<feature>`
+## Development and Testing
 
-Shared browser infrastructure belongs under:
+Before changing observable behavior, add or update a test that fails for the
+intended reason at the lowest effective layer. Follow
+`docs/architecture/testing-strategy.md`, including its API-TDD sequence.
+Documentation, formatting, and mechanical configuration changes do not require
+meaningless tests; run the checks relevant to the files and commands affected.
 
-- `apps/web/src/shared`
+Never weaken, delete, skip, or rewrite an approved test merely to make an
+incorrect implementation pass. Do not create tests that only verify mocks or
+private implementation details.
 
-### `packages/contracts`
+During development, run focused affected checks first. Before handing off a
+completed implementation, run `pnpm format:check`, `pnpm lint`,
+`pnpm typecheck`, affected tests, `pnpm build`, and `pnpm verify`, unless the
+task documents a justified exception. Run relevant Playwright tests when a
+complete user journey changes. Report only commands actually executed and any
+remaining warnings or failures.
 
-Contains shared external HTTP contracts only:
+## Ambiguity and Decision Handling
 
-- Zod request schemas.
-- Zod response schemas.
-- Query parameter schemas.
-- API DTOs inferred from schemas.
-- Stable public API error codes and error envelopes.
+Do not silently invent product behavior, public API semantics, persistence
+guarantees, security rules, or architectural boundaries.
 
-Do not place backend domain behavior, repository interfaces, React components, Express code, or persistence records in this package.
+Ask the user before proceeding when an unresolved decision would materially
+affect one or more of the following:
 
-### `tests/e2e`
+- public API compatibility
+- business rules or financial semantics
+- persistent data shape or migration requirements
+- security, authorization, or privacy behavior
+- architecture or workspace boundaries
+- the scope or reviewability of the intended commit
+- a trade-off with multiple reasonable options and no established repository
+  convention
 
-Contains high-value full-system browser tests. E2E tests should cover critical user journeys, not every branch already covered at lower levels.
+Do not stop for minor implementation choices that are local, reversible, and
+already guided by repository conventions. In those cases, choose the smallest
+reasonable implementation and report the assumption.
 
-## Global Dependency Rules
+When asking a question:
 
-Maintain these dependency directions:
+1. State the unresolved decision clearly.
+2. Explain why it matters.
+3. Present the most reasonable options and their trade-offs.
+4. Recommend one option.
+5. Do not continue with the affected behavior until the decision is resolved,
+   unless the user explicitly authorizes a provisional assumption.
 
-- `apps/web` may depend on `packages/contracts`.
-- `apps/api` may depend on `packages/contracts`.
-- `packages/contracts` must not depend on `apps/api` or `apps/web`.
-- Backend domain code must not depend on Express, HTTP status codes, Zod transport schemas, filesystem APIs, database drivers, React, or browser APIs.
-- Backend application code must not depend on Express `Request` or `Response` objects.
-- Infrastructure may depend inward on domain/application abstractions.
-- HTTP adapters may depend inward on application use cases and contract schemas.
-- Frontend code must not import backend domain or application modules.
+After the user resolves an ambiguity, record the decision only when it has
+lasting value:
 
-Use pnpm workspace dependencies for cross-workspace imports. Path aliases may be used only for imports within the same workspace package.
+- update an applicable AGENTS.md only for durable rules that future agents must repeatedly follow
+- update module documentation for product assumptions, scope decisions, and feature-specific semantics
+- use an architecture decision document for significant cross-cutting trade-offs
+- update PROMPTS.md when the AI interaction materially influenced the design, implementation, or verification
 
-## Development Rules
+Do not copy every user answer into AGENTS.md. Avoid duplicating the same decision
+across multiple instruction and documentation files.
 
-- Prefer feature-first organization over global technical dumping grounds.
-- Do not create generic `utils`, `services`, `helpers`, or `common` directories unless the code has a clear, stable responsibility and more than one genuine consumer.
-- Do not create new workspace packages without a real cross-application consumer or a clearly justified independent build boundary.
-- Do not introduce new frameworks, databases, infrastructure platforms, or architectural patterns without explicit approval.
-- Keep `apps/api/src/app.ts` responsible for creating and exporting the Express application.
-- Keep `apps/api/src/server.ts` responsible for starting the HTTP listener.
-- Importing the Express application in tests must not open a network port.
-- Keep API machine values stable and separate from user-facing labels.
-- Do not expose persistence implementation details through public API contracts.
+Before recording a newly resolved decision, inspect existing documentation and
+update the single most appropriate source of truth. Do not create a new document
+when an existing module or architecture document already owns that decision.
 
-## API and Contract Rules
+## Commit Readiness
 
-Before implementing or changing an API endpoint:
+When the user asks whether work is ready to commit:
 
-1. Define or update the shared HTTP contract when the request, response, query, or public error shape changes.
-2. Add or update contract tests.
-3. Add at least one failing Supertest integration test that describes the endpoint's externally observable behavior.
-4. Add domain or application tests before implementing new business rules or use-case branches.
-5. Implement the minimum production code required to satisfy the approved tests.
-6. Add infrastructure integration tests whenever persistence behavior is introduced or changed.
-7. Run focused tests first, then all affected workspace checks.
+1. Inspect the complete working-tree diff for unrelated changes and scope creep.
+2. Check architecture and dependency boundaries and confirm new observable
+   behavior has appropriate tests.
+3. Run focused affected tests, then `pnpm verify`; run relevant Playwright tests
+   when a complete user journey changed.
+4. Check for secrets, generated artifacts, debug code, skipped tests, and
+   focused tests.
+5. Determine whether `README.md` and `PROMPTS.md` require updates.
+6. Report unresolved warnings and propose one coherent Conventional Commit
+   message.
 
-Controllers and routes must:
-
-- Validate transport input.
-- Map HTTP input to application input.
-- Call the required use case.
-- Map domain/application results to response DTOs.
-- Delegate known failures to a centralized HTTP error mapper.
-
-Controllers and routes must not:
-
-- Read or write persistence directly.
-- Contain domain eligibility rules.
-- Mutate domain state directly.
-- Invent one-off error response shapes.
-- Match human-readable error messages to determine behavior.
-
-Public API error handling must keep these concepts separate:
-
-- Domain or application error type.
-- Stable public API error code.
-- HTTP status code.
-- Human-readable message.
-
-Public behavior must be selected by error type or stable error code, never by matching message text.
-
-## Testing Rules
-
-Before changing observable behavior, add or update a test that fails for the intended reason.
-
-Choose the lowest effective test layer that observes the behavior:
-
-- Contract change: contract test.
-- Domain invariant: domain unit test.
-- Use-case orchestration: application unit test.
-- Repository or filesystem behavior: infrastructure integration test.
-- Endpoint behavior: Supertest HTTP integration test.
-- User-visible React behavior: Testing Library component test.
-- Frontend HTTP integration: Testing Library plus MSW.
-- Critical end-to-end user journey: Playwright.
-- Bug fix: first add a regression test at the layer closest to the root cause.
-
-Do not create tests that only verify mocks or implementation details.
-
-Do not weaken, delete, skip, or rewrite an approved test merely to make an incorrect implementation pass.
-
-Regression is a purpose, not a separate test directory. Keep regression tests at the appropriate unit, integration, component, or E2E layer.
-
-## Definition of Done
-
-A task is complete only when:
-
-- The requested behavior is implemented without unrelated scope expansion.
-- Relevant focused tests pass.
-- Contract changes are reflected in both schema and inferred types.
-- `pnpm format:check` passes.
-- `pnpm lint` passes.
-- `pnpm typecheck` passes.
-- Relevant tests pass.
-- `pnpm build` passes.
-- `pnpm verify` passes unless the task explicitly documents a justified exception.
-- Tests were not weakened to accommodate the implementation.
-- Documentation is updated when architecture, contracts, commands, or important assumptions change.
+Do not run this full protocol after every small edit, and do not create a commit
+unless the user explicitly requests it.
 
 ## AI Development Record
 
-Record meaningful AI-assisted work in `PROMPTS.md` when it affects:
-
-- Requirement interpretation.
-- Architecture.
-- API contracts.
-- Test strategy.
-- Important implementation decisions.
-- Bug diagnosis or regression prevention.
-
-Each record should include the prompt objective, context, result, human decision, and actual verification performed.
-
-Do not record routine autocomplete or trivial formatting assistance.
+Update `PROMPTS.md` for meaningful AI-assisted requirement interpretation,
+architecture, contracts, test strategy, important implementation decisions, or
+bug diagnosis. Record the objective, relevant context, result, human decision,
+and verification performed. Do not record routine autocomplete or formatting.

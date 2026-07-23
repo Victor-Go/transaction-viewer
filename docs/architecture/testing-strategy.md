@@ -1,286 +1,106 @@
 # Testing Strategy
 
-## Objectives
+## Principle
 
-Testing provides evidence that the system satisfies business rules, public contracts, infrastructure behavior, and user-visible workflows.
+Use the lowest test layer that reliably observes the behavior. Add broader tests
+only for meaningful integration risk. Coverage is diagnostic evidence, not a
+reason to write tests without behavioral value.
 
-The strategy is risk-based rather than coverage-number-driven. Use the lowest test layer that can reliably observe the behavior, and use broader tests only where integration risk justifies them.
-
-## TDD Rule for Observable Behavior
-
-Before implementing or changing observable behavior:
-
-1. Identify the contract, rule, or user outcome being changed.
-2. Add or update a test that fails for the intended reason.
-3. Confirm the failure represents missing or incorrect behavior rather than a broken test setup.
-4. Implement the minimum code required to pass.
-5. Refactor while keeping the test suite green.
-6. Run focused tests, then affected workspace checks.
-
-Configuration-only, documentation-only, and mechanical refactoring tasks do not require artificial tests. They still require the relevant verification commands.
+Before changing observable behavior, add or update a test that fails for the
+intended reason, implement the minimum behavior, then refactor while keeping the
+suite green. Documentation, formatting, and mechanical configuration changes
+do not require artificial tests, but still require relevant verification.
 
 ## Test Layers
 
-### Contract Tests
+### Contract tests
 
-Use when changing:
+Use Zod schemas as the source of truth and infer public TypeScript types from
+them. Runtime contract tests verify parsing behavior; repository type checking
+verifies compile-time usage.
 
-- Request bodies.
-- Response DTOs.
-- Query parameters.
-- Public enums or machine values.
-- Public API error codes.
-- Error envelopes.
+### Domain unit tests
 
-Location:
+Use for entities, value objects, invariants, calculations, eligibility rules,
+state transitions, and domain errors. Exercise pure business inputs, outputs,
+boundaries, and rejected transitions without Express, HTTP, files, or technical mocks.
 
-- `packages/contracts`
+### Application use-case tests
 
-Test:
+Use for orchestration through repository or gateway ports: loading, not-found
+handling, calling domain behavior, saving, and coordinating clocks or ID
+generators. Prefer focused fakes. Assert outcomes and important side effects,
+not exhaustive mock call sequences.
 
-- Valid examples parse.
-- Invalid values are rejected.
-- Required fields are enforced.
-- Machine values are stable.
-- Type inference remains aligned with the schema.
+### Infrastructure integration tests
 
-Contract tests should normally be written before endpoint implementation.
+Use for repository, filesystem, serialization, mapping, atomic-write,
+or external-adapter behavior. Prefer the real local boundary with isolated
+temporary resources. Test defined failure behavior and prove writes survive a
+fresh read. Do not mock filesystem calls when a safe temporary-directory test
+can observe the behavior.
 
-### Domain Unit Tests
+### HTTP integration tests
 
-Use when implementing pure business rules:
+Use Vitest and Supertest for every new or changed endpoint. Exercise route
+registration, validation, controller mapping, use-case invocation, error
+middleware, status, and contract-shaped body. Cover the happy path and important
+protocol failures. Controller unit tests are not required when HTTP integration
+tests provide the appropriate coverage; avoid extensive Express mocks.
 
-- Entity invariants.
-- Value-object validation.
-- State transitions.
-- Eligibility policies.
-- Domain calculations.
+### React component tests
 
-Test:
+Use Vitest, React Testing Library, and `user-event` for user-visible component
+behavior. Assert accessible content, interaction, loading, empty, success, and
+error states. Avoid private hook state, helper internals, exact call counts, and
+exact CSS class names unless a class is itself public behavior.
 
-- Business inputs and outputs.
-- Allowed transitions.
-- Rejected transitions.
-- Domain errors.
-- Boundary values.
+### MSW frontend integration tests
 
-Do not involve Express, files, databases, HTTP status codes, or mocks of technical systems.
+Use Testing Library plus MSW when testing a feature through its HTTP boundary.
+Exercise native Fetch through `shared/api`, contract-shaped requests and
+responses, typed failures, and retry or refresh behavior. Do not mock Fetch
+directly when network-level behavior is the subject. Unhandled requests should
+fail unless deliberately permitted.
 
-Domain rules should be developed test-first.
+### Playwright E2E tests
 
-### Application Use-Case Tests
+Use for a small set of critical complete browser-to-API journeys with the real
+configured test applications and persistence adapter. Do not repeat every
+validation branch already covered below the E2E layer.
 
-Use when implementing orchestration:
+### Regression tests
 
-- Loading entities through a repository port.
-- Handling not-found conditions.
-- Calling domain behavior.
-- Saving results.
-- Coordinating a clock, identifier generator, or multiple dependencies.
+For each confirmed bug, first reproduce it at the layer closest to its root
+cause and keep the test after the fix. Regression describes purpose, not a
+separate directory.
 
-Use focused fakes or in-memory adapters.
+## API TDD Sequence
 
-Test:
+Before implementing or changing an API endpoint:
 
-- Correct repository calls and outcomes.
-- No save when a domain rule rejects the operation.
-- Correct propagation or translation of known failures.
-- Deterministic use of injected time or IDs.
+1. Define or update the shared HTTP contract.
+2. Add contract tests for new request, response, query, or error shapes.
+3. Add at least one failing Supertest integration test describing externally
+   observable behavior.
+4. Add domain or application tests before implementing new business rules or
+   use-case branches.
+5. Implement the minimum behavior required.
+6. Add infrastructure integration tests when persistence behavior is
+   introduced or changed.
+7. Run focused tests and then all affected tests.
 
-Avoid tests whose only purpose is to assert every method-call detail. Assert observable use-case outcomes and important side effects.
+Do not weaken, skip, or rewrite an approved test to accommodate incorrect
+production behavior.
 
-### Infrastructure Integration Tests
+## Test Data and Verification
 
-Use when implementing or changing:
+Use deterministic IDs and timestamps, focused builders, temporary directories
+for filesystem tests, and immutable checked-in seed data. Mock only at deliberate
+boundaries.
 
-- JSON repositories.
-- Filesystem behavior.
-- Database repositories.
-- Serialization and mapping.
-- Atomic file replacement.
-- External client adapters.
-
-Use real temporary files or the real local technical boundary whenever practical.
-
-For JSON persistence, test:
-
-- Valid data can be loaded.
-- Account and status filtering behave correctly.
-- Writes survive a fresh read.
-- Invalid JSON produces the defined failure.
-- Structurally invalid records are rejected.
-- Missing-file behavior is explicit.
-- Temporary files and atomic replacement behave as designed where applicable.
-
-Do not mock `fs` merely to prove that mocked functions were called if the real filesystem boundary can be tested safely in a temporary directory.
-
-### HTTP Integration Tests
-
-Use for every new or changed endpoint.
-
-Tooling:
-
-- Vitest.
-- Supertest.
-
-Exercise:
-
-- Express route registration.
-- Request validation.
-- Controller mapping.
-- Application use case.
-- Error middleware.
-- Response status and body.
-
-At least one failing HTTP integration test must exist before production implementation of a new endpoint.
-
-Test both the happy path and important protocol failures, such as:
-
-- Invalid body or query returns 400.
-- Missing resource returns 404.
-- State conflict returns 409.
-- Empty collections return 200 with an empty collection.
-- Public response conforms to the contract.
-
-Do not unit-test controllers with extensive Express mocks when a Supertest integration test can exercise the same behavior more reliably.
-
-### React Component Tests
-
-Use for user-visible component behavior.
-
-Tooling:
-
-- Vitest.
-- React Testing Library.
-- `@testing-library/user-event`.
-
-Test through accessible, user-observable behavior:
-
-- Content is visible.
-- Controls can be operated.
-- Loading, empty, success, and error states render correctly.
-- Controls are enabled or disabled appropriately.
-- Form validation feedback is associated with user input.
-
-Do not assert:
-
-- Internal component state.
-- Exact hook call counts.
-- Private helper functions.
-- CSS class strings unless the class itself is the public behavior under test.
-
-### Frontend HTTP Integration Tests
-
-Use when testing a feature's interaction with the API.
-
-Tooling:
-
-- React Testing Library.
-- MSW.
-
-Exercise:
-
-- Feature or page component.
-- Native Fetch through the shared API client.
-- Request URL and payload.
-- Contract-shaped responses.
-- Typed error handling.
-- Retry or refresh behavior.
-
-Prefer MSW over mocking global Fetch for network-level behavior. Pure presentational components may be tested with props and do not need MSW.
-
-Unhandled MSW requests should fail tests unless a test explicitly permits them.
-
-### End-to-End Tests
-
-Use for critical complete user journeys after a vertical slice is functional.
-
-Tooling:
-
-- Playwright.
-
-E2E tests should run the real Web and API applications and exercise the real configured persistence adapter appropriate to the test environment.
-
-Keep the suite small and high-value. Suitable journeys include:
-
-- Load transactions and filter by status.
-- Create a transaction and observe that it remains after refresh.
-- Reverse an eligible transaction and observe the persisted terminal state.
-
-Do not reproduce every validation branch already covered by contract and HTTP integration tests.
-
-## Regression Tests
-
-Every confirmed bug should first receive a test that reproduces it.
-
-Choose the layer closest to the root cause:
-
-- Incorrect domain transition: domain test.
-- Incorrect use-case save behavior: application test.
-- Wrong HTTP status or public error: HTTP integration test.
-- Persistence corruption: infrastructure integration test.
-- Incorrect UI filtering: component test.
-- Cross-layer persistence failure visible only after refresh: E2E test.
-
-Keep the test permanently after the fix. Do not create a separate regression-test directory.
-
-## Test Data
-
-Prefer deterministic builders and fixtures.
-
-- Use fixed IDs and timestamps unless randomness is the behavior under test.
-- Use temporary directories for filesystem integration tests.
-- Do not mutate checked-in seed data during tests.
-- Keep fixtures focused on the scenario under test.
-- Avoid large shared fixtures that obscure why a test passes.
-
-## Mocking Policy
-
-Mock only at a deliberate boundary.
-
-Appropriate:
-
-- Application tests using a repository fake.
-- Component tests using props for presentational components.
-- Frontend integration tests using MSW at the HTTP boundary.
-
-Avoid:
-
-- Mocking the method under test.
-- Mocking Express internals instead of using Supertest.
-- Mocking filesystem calls instead of using a temporary directory.
-- Tests that only assert that a mock was invoked without validating the resulting behavior.
-
-## Coverage
-
-Coverage is a diagnostic tool, not the primary quality target.
-
-Prioritize high branch coverage for:
-
-- Domain rules.
-- Application error paths.
-- HTTP error mapping.
-- Persistence failure handling.
-
-Do not add meaningless tests solely to reach an arbitrary global percentage.
-
-## Verification Workflow
-
-During development:
-
-1. Run the smallest focused test file or workspace test command.
-2. Run the affected workspace typecheck and tests.
-3. Before completion, run repository-level checks.
-
-Required completion checks:
-
-- `pnpm format:check`
-- `pnpm lint`
-- `pnpm typecheck`
-- `pnpm test`
-- `pnpm build`
-- `pnpm verify`
-
-Run Playwright when the change affects a covered end-to-end journey or completes a vertical slice.
-
-Do not claim a command passed unless it was actually executed successfully.
+During development, run the smallest relevant test first, followed by affected
+workspace checks. Before completion, follow the repository verification
+expectations in the root `AGENTS.md`. Run Playwright when a covered complete
+journey changes or a vertical slice becomes functional. Never report a command
+as passing unless it was executed successfully.
