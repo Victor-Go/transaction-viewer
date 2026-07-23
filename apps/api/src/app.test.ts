@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
-import { app } from './app.js';
+import { app } from './app.ts';
 
 describe('API application', () => {
   it('reports its health without starting a listener', async () => {
