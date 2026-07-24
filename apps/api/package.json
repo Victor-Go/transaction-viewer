@@ -13,11 +13,13 @@
   },
   "dependencies": {
     "@card-platform/contracts": "workspace:*",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "proper-lockfile": "4.1.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/node": "^24.5.2",
+    "@types/proper-lockfile": "4.1.4",
     "@types/supertest": "^6.0.3",
     "supertest": "^7.1.4",
     "tsx": "^4.20.5",

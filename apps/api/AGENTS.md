@@ -62,8 +62,25 @@ access the filesystem directly.
 Infrastructure integration tests must use isolated temporary files and must not
 modify the repository's committed data file.
 
-Do not introduce a generic JSON storage service unless a second concrete use
-case demonstrates shared behavior that cannot remain inside its repositories.
+The reusable `src/shared/persistence/json` component is an infrastructure
+utility for JSON repository adapters. Domain and application layers must not
+import `JsonFileDatabase`; repository ports remain the replaceable persistence
+boundary. Its typed internal storage errors are not public API error codes.
+
+Database paths are canonicalized through their real parent directory; that
+canonical target keys both the process-local mutex and `proper-lockfile`.
+Target database files must not be symlinks. The process-local mutex does not
+coordinate multiple processes, and all mutation read-modify-write work occurs
+while both locks are held. `proper-lockfile` uses a 5-second stale threshold,
+1-second updates, and an approximately 10-second acquisition window.
+
+Persisted documents must be JSON-safe, survive an equivalent validated JSON
+round-trip, and remain within 1 MiB. Transaction callbacks must remain
+synchronous and side-effect free: thrown errors abort without commit, and
+Promise-like results are rejected. For this take-home implementation, a
+successful atomic replacement or no-op determines mutation success; a later
+lock-release failure is not surfaced to the storage caller and may delay later
+work until stale-lock recovery.
 
 ## API Development
 
