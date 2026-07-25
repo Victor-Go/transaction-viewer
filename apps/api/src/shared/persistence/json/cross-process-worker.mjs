@@ -1,6 +1,7 @@
-/* global console, process */
+/* global process */
 
 import { JsonFileDatabase } from './json-file-database.ts';
+import { NOOP_LOGGER } from '../../observability/logger.ts';
 
 const [filePath, iterationsValue] = process.argv.slice(2);
 const iterations = Number(iterationsValue);
@@ -20,7 +21,11 @@ const schema = {
   },
 };
 
-const database = new JsonFileDatabase({ filePath, schema });
+const database = new JsonFileDatabase({
+  filePath,
+  schema,
+  logger: NOOP_LOGGER,
+});
 
 process.on('message', async (message) => {
   if (message?.type !== 'start') {
@@ -37,7 +42,9 @@ process.on('message', async (message) => {
     }
     process.send?.({ type: 'done' });
   } catch (error) {
-    console.error(error);
+    process.stderr.write(
+      `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+    );
     process.exitCode = 1;
     process.disconnect();
   }

@@ -14,6 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NOOP_LOGGER } from '../../observability/logger.ts';
 
 import { AtomicFileWriter } from './atomic-file-writer.ts';
 import type { FileLock } from './file-lock.ts';
@@ -107,7 +108,7 @@ afterEach(async () => {
 });
 
 const createDatabase = (): JsonFileDatabase<TestCollections> =>
-  new JsonFileDatabase({ filePath, schema });
+  new JsonFileDatabase({ filePath, schema, logger: NOOP_LOGGER });
 
 const initializeWithRecord = async (): Promise<
   JsonFileDatabase<TestCollections>
@@ -380,6 +381,7 @@ describe('JsonFileDatabase mutations', () => {
     const database = new JsonFileDatabase({
       filePath,
       schema,
+      logger: NOOP_LOGGER,
       fileLock: releaseFailingFileLock(release),
     });
     let callbackExecutions = 0;
@@ -410,6 +412,7 @@ describe('JsonFileDatabase mutations', () => {
     const database = new JsonFileDatabase({
       filePath,
       schema,
+      logger: NOOP_LOGGER,
       fileLock: releaseFailingFileLock(async () => {
         throw new Error('unlock failed');
       }),
@@ -430,6 +433,7 @@ describe('JsonFileDatabase mutations', () => {
     const database = new JsonFileDatabase({
       filePath,
       schema,
+      logger: NOOP_LOGGER,
       fileLock: releaseFailingFileLock(release),
     });
 
@@ -779,9 +783,11 @@ describe('JsonFileDatabase canonical path identity', () => {
     );
     const realFilePath = path.join(realDirectory, 'shared.json');
     const aliasFilePath = path.join(aliasDirectory, 'shared.json');
-    await new JsonFileDatabase({ filePath: realFilePath, schema }).initialize(
-      emptyDocument(),
-    );
+    await new JsonFileDatabase({
+      filePath: realFilePath,
+      schema,
+      logger: NOOP_LOGGER,
+    }).initialize(emptyDocument());
 
     const acquiredTargets: string[] = [];
     const recordingLock: FileLock = {
@@ -797,12 +803,14 @@ describe('JsonFileDatabase canonical path identity', () => {
     const realDatabase = new JsonFileDatabase({
       filePath: realFilePath,
       schema,
+      logger: NOOP_LOGGER,
       fileLock: recordingLock,
       atomicFileWriter: blockingWriter,
     });
     const aliasDatabase = new JsonFileDatabase({
       filePath: aliasFilePath,
       schema,
+      logger: NOOP_LOGGER,
       fileLock: recordingLock,
     });
 
@@ -838,12 +846,16 @@ describe('JsonFileDatabase canonical path identity', () => {
   it('does not block mutations for different canonical database files', async () => {
     const firstPath = path.join(directory, 'first.json');
     const secondPath = path.join(directory, 'second.json');
-    await new JsonFileDatabase({ filePath: firstPath, schema }).initialize(
-      emptyDocument(),
-    );
-    await new JsonFileDatabase({ filePath: secondPath, schema }).initialize(
-      emptyDocument(),
-    );
+    await new JsonFileDatabase({
+      filePath: firstPath,
+      schema,
+      logger: NOOP_LOGGER,
+    }).initialize(emptyDocument());
+    await new JsonFileDatabase({
+      filePath: secondPath,
+      schema,
+      logger: NOOP_LOGGER,
+    }).initialize(emptyDocument());
 
     let secondAcquired!: () => void;
     const secondAcquisition = new Promise<void>((resolve) => {
@@ -864,12 +876,14 @@ describe('JsonFileDatabase canonical path identity', () => {
     const firstDatabase = new JsonFileDatabase({
       filePath: firstPath,
       schema,
+      logger: NOOP_LOGGER,
       fileLock: recordingLock,
       atomicFileWriter: blockingWriter,
     });
     const secondDatabase = new JsonFileDatabase({
       filePath: secondPath,
       schema,
+      logger: NOOP_LOGGER,
       fileLock: recordingLock,
     });
 

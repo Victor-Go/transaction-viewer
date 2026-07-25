@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
+import { NOOP_LOGGER } from '../../observability/logger.ts';
 
 import {
   JsonFileDatabase,
@@ -96,7 +97,11 @@ describe('JsonFileDatabase cross-process locking', () => {
     );
     temporaryDirectories.push(directory);
     const filePath = path.join(directory, 'database.json');
-    const database = new JsonFileDatabase({ filePath, schema });
+    const database = new JsonFileDatabase({
+      filePath,
+      schema,
+      logger: NOOP_LOGGER,
+    });
     await database.initialize({
       metadata: { schemaVersion: 1 },
       collections: { counters: [{ id: 'shared', value: 0 }] },
@@ -131,7 +136,11 @@ describe('JsonFileDatabase cross-process locking', () => {
       { id: 'shared', value: iterations * 2 },
     ]);
 
-    const reopened = new JsonFileDatabase({ filePath, schema });
+    const reopened = new JsonFileDatabase({
+      filePath,
+      schema,
+      logger: NOOP_LOGGER,
+    });
     await expect(
       reopened.findOne('counters', (counter) => counter.id === 'shared'),
     ).resolves.toEqual({ id: 'shared', value: iterations * 2 });

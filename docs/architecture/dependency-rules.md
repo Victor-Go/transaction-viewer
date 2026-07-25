@@ -63,6 +63,12 @@ invokes use cases, presents contract-shaped output, and centrally maps known
 failures. It must not access persistence, implement business rules, mutate
 domain state directly, or leak infrastructure failures.
 
+HTTP must not import transaction infrastructure. Client-visible conditions
+originating in adapters use application-owned errors so both HTTP and
+infrastructure depend inward. Shared infrastructure may depend on the
+application-neutral `Logger` abstraction, while only outer composition and the
+logging adapter may import Pino.
+
 ## Frontend Boundaries
 
 - `shared/api` owns generic Fetch transport, safe response parsing, abort,

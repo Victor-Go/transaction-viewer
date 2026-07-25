@@ -1,14 +1,30 @@
 import { describe, expect, it } from 'vitest';
 
-import { apiErrorCodeSchema, apiErrorResponseSchema } from './api-error.ts';
+import {
+  API_ERROR_CODES,
+  apiErrorCodeSchema,
+  apiErrorResponseSchema,
+} from './api-error.ts';
 
 describe('apiErrorCodeSchema', () => {
-  it.each(['INVALID_REQUEST', 'INTERNAL_ERROR'])(
-    'accepts the public error code %s',
-    (code) => {
-      expect(apiErrorCodeSchema.parse(code)).toBe(code);
-    },
-  );
+  it('accepts every value in the shared API error-code registry', () => {
+    expect(
+      Object.values(API_ERROR_CODES).map((code) =>
+        apiErrorCodeSchema.parse(code),
+      ),
+    ).toEqual(Object.values(API_ERROR_CODES));
+  });
+  it.each([
+    'INVALID_REQUEST',
+    'INTERNAL_ERROR',
+    'TRANSACTION_NOT_FOUND',
+    'TRANSACTION_NOT_POSTED',
+    'TRANSACTION_ALREADY_REVERSED',
+    'REVERSAL_WINDOW_EXPIRED',
+    'IDEMPOTENCY_CONFLICT',
+  ])('accepts the public error code %s', (code) => {
+    expect(apiErrorCodeSchema.parse(code)).toBe(code);
+  });
 
   it('rejects error codes outside the current public contract', () => {
     expect(apiErrorCodeSchema.safeParse('NOT_A_REAL_ERROR_CODE').success).toBe(

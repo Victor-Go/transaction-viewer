@@ -27,18 +27,24 @@ const postedTransaction: Transaction = {
 
 const pageWithMore = {
   transactions: [postedTransaction],
+  pageSize: 20,
+  totalCount: 21,
   hasMore: true,
   nextPageToken: 'next-opaque-cursor',
 } satisfies ListTransactionsPageWithMore;
 
 const finalNonEmptyPage = {
   transactions: [postedTransaction],
+  pageSize: 20,
+  totalCount: 1,
   hasMore: false,
   nextPageToken: null,
 } satisfies ListTransactionsFinalPage;
 
 const emptyFinalPage = {
   transactions: [],
+  pageSize: 20,
+  totalCount: 0,
   hasMore: false,
   nextPageToken: null,
 } satisfies ListTransactionsFinalPage;
@@ -50,6 +56,10 @@ class RecordingTransactionRepository implements TransactionRepository {
     private readonly configuredResult: ListTransactionsResult,
     private readonly configuredFailure?: Error,
   ) {}
+
+  async findByAccountAndId(): Promise<Transaction | null> {
+    throw new Error('not used');
+  }
 
   async listByAccount(
     criteria: ListTransactionsCriteria,

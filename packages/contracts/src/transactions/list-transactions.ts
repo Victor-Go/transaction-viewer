@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  accountIdSchema,
   transactionDtoSchema,
   transactionStatusSchema,
 } from './transaction.ts';
@@ -28,13 +29,7 @@ const pageSizeQuerySchema = z
 
 export const listTransactionsPathParamsSchema = z
   .object({
-    accountId: z
-      .string()
-      .min(1)
-      .max(128)
-      .refine((value) => value.trim() === value, {
-        message: 'Account ID must not have surrounding whitespace',
-      }),
+    accountId: accountIdSchema,
   })
   .strict();
 
@@ -53,6 +48,7 @@ export const listTransactionsResponseSchema = z
       .object({
         pageSize: z.number().int().min(1).max(100),
         returnedCount: z.number().int().nonnegative(),
+        totalCount: z.number().int().nonnegative(),
         hasMore: z.boolean(),
         nextPageToken: opaquePageTokenSchema.nullable(),
       })
@@ -67,6 +63,13 @@ export const listTransactionsResponseSchema = z
     message: 'returnedCount must not exceed pageSize',
     path: ['meta', 'returnedCount'],
   })
+  .refine(
+    (response) => response.meta.returnedCount <= response.meta.totalCount,
+    {
+      message: 'returnedCount must not exceed totalCount',
+      path: ['meta', 'returnedCount'],
+    },
+  )
   .refine(
     (response) => !response.meta.hasMore || response.meta.returnedCount > 0,
     {

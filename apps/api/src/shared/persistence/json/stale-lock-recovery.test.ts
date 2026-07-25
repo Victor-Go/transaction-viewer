@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+import { NOOP_LOGGER } from '../../observability/logger.ts';
 
 import { DATABASE_FILE_LOCK_TIMING } from './file-lock.ts';
 import {
@@ -95,7 +96,11 @@ describe('JsonFileDatabase stale lock recovery', () => {
       path.join(os.tmpdir(), 'json-stale-lock-test-'),
     );
     const filePath = path.join(directory, 'database.json');
-    const database = new JsonFileDatabase({ filePath, schema });
+    const database = new JsonFileDatabase({
+      filePath,
+      schema,
+      logger: NOOP_LOGGER,
+    });
     await database.initialize({
       metadata: { schemaVersion: 1 },
       collections: { counters: [{ id: 'shared', value: 0 }] },
@@ -137,7 +142,11 @@ describe('JsonFileDatabase stale lock recovery', () => {
         { id: 'shared', value: 1 },
       ]);
 
-      const reopened = new JsonFileDatabase({ filePath, schema });
+      const reopened = new JsonFileDatabase({
+        filePath,
+        schema,
+        logger: NOOP_LOGGER,
+      });
       await expect(
         reopened.updateWhere(
           'counters',

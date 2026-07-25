@@ -40,15 +40,21 @@ Controllers and middleware must not:
 - Invent inline public API error-code string literals.
 - Select behavior by matching human-readable error messages.
 - Expose raw infrastructure exceptions or implementation details.
+- Import repository-adapter errors. Adapter-originated client-visible
+  conditions use application-owned error types.
 
 Domain and application errors contain no HTTP status codes. Map known internal
 error types to statuses and centrally defined contract error codes at the HTTP
 boundary. Map unknown failures to the safe `INTERNAL_ERROR` contract response.
+Public error-code values come from `@card-platform/contracts`.
 
 ## JSON Persistence
 
-For the current assignment, transaction data must be persisted in
-`apps/api/data/transactions.json`.
+For the current assignment, transaction data is persisted in the runtime-
+selected JSON file. The default is `apps/api/data/default.json`; explicit
+selection follows the documented `--database-file` then `DATABASE_FILE`
+precedence. Demo data must not be silently seeded into explicitly selected
+files.
 
 Application code accesses transaction persistence only through the transaction
 repository port.
@@ -61,6 +67,17 @@ access the filesystem directly.
 
 Infrastructure integration tests must use isolated temporary files and must not
 modify the repository's committed data file.
+
+Runtime JSON files under `apps/api/data` are generated and ignored. The
+deterministic default demo dataset is created only when the missing default
+database is first initialized; explicit files seed only when explicitly
+requested, and existing files are preserved.
+
+Core infrastructure depends only on the shared `Logger` abstraction. Pino is
+restricted to the outer logging adapter and composition boundary. Never log
+transaction records, account IDs, merchant names, amounts, cursor payloads,
+credentials, connection strings, complete database documents, or absolute
+database paths.
 
 The reusable `src/shared/persistence/json` component is an infrastructure
 utility for JSON repository adapters. Domain and application layers must not
@@ -93,9 +110,10 @@ Use centralized error middleware for known failures. Controller unit tests are
 optional when Supertest integration tests cover the same behavior at the more
 useful boundary.
 
-Keep `src/app.ts` responsible for creating and exporting the Express
-application. Keep `src/server.ts` responsible for starting the listener; tests
-that import the app must not open a port.
+Keep `src/app.ts` responsible for creating the Express application from
+required, fail-fast dependencies. Keep `src/server.ts` responsible for starting
+the listener; tests that import the app must not open a port or initialize
+persistence.
 
 Run focused API and contract tests while developing, then the root verification
 required for completion.

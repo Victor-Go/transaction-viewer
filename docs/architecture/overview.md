@@ -35,12 +35,12 @@ and controllers receive use cases.
 Keep `app.ts` as the import-safe Express composition entry point and `server.ts`
 as the process entry point that starts listening.
 
-The current transaction persistence adapter stores records in
-`apps/api/data/transactions.json`. The file path is supplied at the API
-composition boundary, while application use cases depend only on the repository
-port. This keeps JSON-specific parsing and filesystem behavior inside
-infrastructure and allows a future adapter to replace it without changing
-business logic.
+The current transaction persistence adapter stores records in the selected JSON
+database file, defaulting to `apps/api/data/default.json`. The file path is
+supplied at the API composition boundary, while application use cases depend
+only on the repository port. This keeps JSON-specific parsing and filesystem
+behavior inside infrastructure and allows a future adapter to replace it
+without changing business logic.
 
 ## Frontend Organization
 

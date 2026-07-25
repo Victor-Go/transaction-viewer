@@ -33,6 +33,7 @@ import type {
   UpdateWhereResult,
 } from './json-file-database.types.ts';
 import { KeyedMutex } from './keyed-mutex.ts';
+import type { Logger } from '../../observability/logger.ts';
 
 export interface JsonDatabaseRuntimeSchema<
   Collections extends CollectionMap<Collections>,
@@ -46,6 +47,7 @@ export interface JsonFileDatabaseOptions<
 > {
   readonly filePath: string;
   readonly schema: JsonDatabaseRuntimeSchema<Collections>;
+  readonly logger: Logger;
   readonly fileLock?: FileLock;
   readonly atomicFileWriter?: AtomicFileWriter;
 }
@@ -160,10 +162,12 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
   readonly #schema: JsonDatabaseRuntimeSchema<Collections>;
   readonly #fileLock: FileLock;
   readonly #atomicFileWriter: AtomicFileWriter;
+  readonly #logger: Logger;
 
   constructor({
     filePath,
     schema,
+    logger,
     fileLock = new ProperFileLock(),
     atomicFileWriter = new AtomicFileWriter(),
   }: JsonFileDatabaseOptions<Collections>) {
@@ -171,6 +175,10 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
     this.#schema = schema;
     this.#fileLock = fileLock;
     this.#atomicFileWriter = atomicFileWriter;
+    this.#logger = logger.child({
+      component: 'json-file-database',
+      database: path.basename(this.#configuredFilePath),
+    });
   }
 
   async initialize(
@@ -185,6 +193,7 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
       await assertDatabaseTargetIsNotSymlink(filePath);
       try {
         await this.readLatestDocument(filePath);
+        this.#logger.info({ event: 'database_opened' }, 'Database opened');
         return { created: false };
       } catch (error) {
         if (!(error instanceof DatabaseFileMissingError)) {
@@ -195,6 +204,10 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
       const validated = this.validateDocument(initialDocument);
       lockHandle.assertUsable();
       await this.writeDocument(filePath, validated, lockHandle);
+      this.#logger.info(
+        { event: 'database_initialized' },
+        'Database initialized',
+      );
       return { created: true };
     });
   }
@@ -272,6 +285,10 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
 
       if (!isDeepStrictEqual(committed, validated)) {
         await this.writeDocument(filePath, validated, lockHandle);
+        this.#logger.debug(
+          { event: 'mutation_committed' },
+          'Database mutation committed',
+        );
       }
 
       return result as Result;
@@ -312,7 +329,12 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
     try {
       input = JSON.parse(serialized);
     } catch (error) {
-      throw new MalformedDatabaseJsonError(error);
+      const failure = new MalformedDatabaseJsonError(error);
+      this.#logger.error(
+        { errorCategory: failure.name },
+        'Database JSON is malformed',
+      );
+      throw failure;
     }
 
     return this.validateDocument(input);
@@ -342,7 +364,12 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
     try {
       return this.#schema.parse(input);
     } catch (error) {
-      throw new InvalidDatabaseDocumentError(error);
+      const failure = new InvalidDatabaseDocumentError(error);
+      this.#logger.error(
+        { errorCategory: failure.name },
+        'Database document is invalid',
+      );
+      throw failure;
     }
   }
 
@@ -356,9 +383,20 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
       throw new DatabaseSizeLimitExceededError();
     }
 
-    await this.#atomicFileWriter.replace(filePath, serialized, () => {
-      lockHandle.assertUsable();
-    });
+    try {
+      await this.#atomicFileWriter.replace(filePath, serialized, () => {
+        lockHandle.assertUsable();
+      });
+    } catch (error) {
+      this.#logger.error(
+        {
+          errorCategory:
+            error instanceof Error ? error.constructor.name : 'UnknownError',
+        },
+        'Database replacement failed',
+      );
+      throw error;
+    }
   }
 
   private serializeDocument(
@@ -385,7 +423,19 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
     work: (lockHandle: FileLockHandle) => Promise<Result>,
   ): Promise<Result> {
     return processLocalWriteMutex.runExclusive(filePath, async () => {
-      const lockHandle = await this.#fileLock.acquire(filePath);
+      let lockHandle: FileLockHandle;
+      try {
+        lockHandle = await this.#fileLock.acquire(filePath);
+      } catch (error) {
+        this.#logger.error(
+          {
+            errorCategory:
+              error instanceof Error ? error.constructor.name : 'UnknownError',
+          },
+          'Database lock acquisition failed',
+        );
+        throw error;
+      }
       let operationFailure: unknown;
       let result: Result | undefined;
       let operationFailed = false;
@@ -398,7 +448,16 @@ export class JsonFileDatabase<Collections extends CollectionMap<Collections>> {
       } finally {
         try {
           await lockHandle.release();
-        } catch {
+        } catch (error) {
+          this.#logger.warn(
+            {
+              errorCategory:
+                error instanceof Error
+                  ? error.constructor.name
+                  : 'UnknownError',
+            },
+            'Database lock release failed',
+          );
           // A completed mutation or no-op determines the caller-visible result.
           // Stale-lock recovery handles any lock artifact left by failed cleanup.
         }

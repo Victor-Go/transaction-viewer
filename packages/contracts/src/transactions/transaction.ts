@@ -6,6 +6,16 @@ export const transactionStatusSchema = z.enum([
   'reversed',
 ]);
 
+export const ACCOUNT_ID_MAX_LENGTH = 128;
+
+export const accountIdSchema = z
+  .string()
+  .min(1)
+  .max(ACCOUNT_ID_MAX_LENGTH)
+  .refine((value) => value.trim() === value, {
+    message: 'Account ID must not have surrounding whitespace',
+  });
+
 export const moneyDtoSchema = z
   .object({
     minorUnits: z.number().int().nonnegative(),
@@ -20,16 +30,28 @@ const nonBlankResponseStringSchema = z
     message: 'Value must contain a non-whitespace character',
   });
 
+export const TRANSACTION_ID_MAX_LENGTH = 64;
+
+export const transactionIdSchema = z
+  .string()
+  .min(1)
+  .max(TRANSACTION_ID_MAX_LENGTH)
+  .refine((value) => value.trim() === value, {
+    message: 'Transaction ID must not have surrounding whitespace',
+  });
+
 const utcTimestampSchema = z.iso.datetime();
 
 const transactionCommonFields = {
-  id: nonBlankResponseStringSchema,
-  accountId: nonBlankResponseStringSchema,
+  id: transactionIdSchema,
+  accountId: accountIdSchema,
   merchantName: nonBlankResponseStringSchema,
   amount: moneyDtoSchema,
   transactionDate: utcTimestampSchema,
   createdAt: utcTimestampSchema,
   updatedAt: utcTimestampSchema,
+  canReverse: z.boolean(),
+  reverseExpiresAt: utcTimestampSchema,
 };
 
 const pendingTransactionDtoSchema = z

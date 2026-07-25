@@ -17,6 +17,8 @@ const commonTransactionFields = {
   transactionDate: '2026-07-20T18:30:00.000Z',
   createdAt: '2026-07-20T18:31:00.000Z',
   updatedAt: '2026-07-20T18:31:00.000Z',
+  canReverse: false,
+  reverseExpiresAt: '2026-08-20T18:30:00.000Z',
 };
 
 const postedTransactionDto = {
@@ -78,6 +80,43 @@ describe('moneyDtoSchema', () => {
 });
 
 describe('transactionDtoSchema', () => {
+  it.each(['x', 'x'.repeat(128), 'acc_demo'])(
+    'accepts a supported account ID %j',
+    (accountId) => {
+      expect(
+        transactionDtoSchema.parse({ ...postedTransactionDto, accountId })
+          .accountId,
+      ).toBe(accountId);
+    },
+  );
+
+  it.each(['x'.repeat(129), ' account-001', 'account-001 ', '   '])(
+    'rejects an unsupported account ID %j',
+    (accountId) => {
+      expect(
+        transactionDtoSchema.safeParse({
+          ...postedTransactionDto,
+          accountId,
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it.each(['x', 'x'.repeat(64)])('accepts a supported transaction ID', (id) => {
+    expect(transactionDtoSchema.parse({ ...postedTransactionDto, id }).id).toBe(
+      id,
+    );
+  });
+
+  it.each(['x'.repeat(65), ' txn-001', 'txn-001 '])(
+    'rejects an unsupported transaction ID %j',
+    (id) => {
+      expect(
+        transactionDtoSchema.safeParse({ ...postedTransactionDto, id }).success,
+      ).toBe(false);
+    },
+  );
+
   it.each([
     ['pending', null],
     ['posted', null],

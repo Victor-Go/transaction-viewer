@@ -19,14 +19,19 @@ const transactionDto = {
   createdAt: '2026-07-20T18:31:00.000Z',
   updatedAt: '2026-07-20T18:31:00.000Z',
   reversedAt: null,
+  canReverse: true,
+  reverseExpiresAt: '2026-08-20T18:30:00.000Z',
 };
 
 describe('listTransactionsPathParamsSchema', () => {
-  it('accepts a valid accountId without changing it', () => {
-    const params = { accountId: 'account-001' };
+  it.each(['x', 'x'.repeat(128), 'acc_demo'])(
+    'accepts a supported accountId without changing it',
+    (accountId) => {
+      const params = { accountId };
 
-    expect(listTransactionsPathParamsSchema.parse(params)).toEqual(params);
-  });
+      expect(listTransactionsPathParamsSchema.parse(params)).toEqual(params);
+    },
+  );
 
   it.each(['', '   '])('rejects the invalid accountId %j', (accountId) => {
     expect(
@@ -48,13 +53,14 @@ describe('listTransactionsPathParamsSchema', () => {
     ).toBe(false);
   });
 
-  it('rejects an accountId longer than 128 characters', () => {
-    expect(
-      listTransactionsPathParamsSchema.safeParse({
-        accountId: 'a'.repeat(129),
-      }).success,
-    ).toBe(false);
-  });
+  it.each(['a'.repeat(129), ' account-001', 'account-001 ', '   '])(
+    'rejects the unsupported accountId %j',
+    (accountId) => {
+      expect(
+        listTransactionsPathParamsSchema.safeParse({ accountId }).success,
+      ).toBe(false);
+    },
+  );
 
   it('rejects undeclared path parameters', () => {
     expect(
@@ -191,6 +197,7 @@ describe('listTransactionsResponseSchema', () => {
       meta: {
         pageSize: 20,
         returnedCount: 1,
+        totalCount: 45,
         hasMore: true,
         nextPageToken: 'opaque-next-cursor',
       },
@@ -205,6 +212,7 @@ describe('listTransactionsResponseSchema', () => {
       meta: {
         pageSize: 20,
         returnedCount: 1,
+        totalCount: 1,
         hasMore: false,
         nextPageToken: null,
       },
@@ -219,12 +227,75 @@ describe('listTransactionsResponseSchema', () => {
       meta: {
         pageSize: 20,
         returnedCount: 0,
+        totalCount: 0,
         hasMore: false,
         nextPageToken: null,
       },
     };
 
     expect(listTransactionsResponseSchema.parse(response)).toEqual(response);
+  });
+
+  it('accepts an empty later page while retaining the filtered totalCount', () => {
+    const response = {
+      data: [],
+      meta: {
+        pageSize: 20,
+        returnedCount: 0,
+        totalCount: 45,
+        hasMore: false,
+        nextPageToken: null,
+      },
+    };
+
+    expect(listTransactionsResponseSchema.parse(response)).toEqual(response);
+  });
+
+  it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects invalid totalCount %j',
+    (totalCount) => {
+      expect(
+        listTransactionsResponseSchema.safeParse({
+          data: [],
+          meta: {
+            pageSize: 20,
+            returnedCount: 0,
+            totalCount,
+            hasMore: false,
+            nextPageToken: null,
+          },
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it('rejects a response missing totalCount', () => {
+    expect(
+      listTransactionsResponseSchema.safeParse({
+        data: [],
+        meta: {
+          pageSize: 20,
+          returnedCount: 0,
+          hasMore: false,
+          nextPageToken: null,
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects returnedCount greater than totalCount', () => {
+    expect(
+      listTransactionsResponseSchema.safeParse({
+        data: [transactionDto],
+        meta: {
+          pageSize: 20,
+          returnedCount: 1,
+          totalCount: 0,
+          hasMore: false,
+          nextPageToken: null,
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects an empty page that claims another page exists', () => {
@@ -234,6 +305,7 @@ describe('listTransactionsResponseSchema', () => {
         meta: {
           pageSize: 20,
           returnedCount: 0,
+          totalCount: 0,
           hasMore: true,
           nextPageToken: 'unexpected-next-cursor',
         },
@@ -248,6 +320,7 @@ describe('listTransactionsResponseSchema', () => {
         meta: {
           pageSize: 20,
           returnedCount: 0,
+          totalCount: 1,
           hasMore: false,
           nextPageToken: null,
         },
@@ -262,6 +335,7 @@ describe('listTransactionsResponseSchema', () => {
         meta: {
           pageSize: 1,
           returnedCount: 2,
+          totalCount: 2,
           hasMore: false,
           nextPageToken: null,
         },
@@ -276,6 +350,7 @@ describe('listTransactionsResponseSchema', () => {
         meta: {
           pageSize: 20,
           returnedCount: 1,
+          totalCount: 1,
           hasMore: true,
           nextPageToken: null,
         },
@@ -290,6 +365,7 @@ describe('listTransactionsResponseSchema', () => {
         meta: {
           pageSize: 20,
           returnedCount: 1,
+          totalCount: 1,
           hasMore: true,
           nextPageToken: '   ',
         },
@@ -304,6 +380,7 @@ describe('listTransactionsResponseSchema', () => {
         meta: {
           pageSize: 20,
           returnedCount: 1,
+          totalCount: 1,
           hasMore: false,
           nextPageToken: 'unexpected-cursor',
         },
