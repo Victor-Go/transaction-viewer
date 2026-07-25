@@ -1,6 +1,8 @@
 # Card Platform
 
-A full-stack TypeScript monorepo for an extensible card platform. The transaction viewer will be the first business module, while the repository boundaries are designed to support additional card-platform capabilities.
+A full-stack TypeScript monorepo for an extensible card platform. Transaction
+Viewer is the first business module, while the repository boundaries are
+designed to support additional card-platform capabilities.
 
 ## Requirements
 
@@ -281,7 +283,7 @@ database. Successful mutation and idempotency-record insertion are committed
 in one atomic database transaction. Records are retained indefinitely for this
 Assignment and therefore contribute to the database's fixed size limit.
 
-For a future frontend, effective eligibility must fail closed:
+The frontend calculates effective eligibility defensively:
 
 ```text
 effectiveCanReverse =

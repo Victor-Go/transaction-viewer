@@ -1,10 +1,17 @@
 # Transactions
 
-`TransactionRepository` is the replaceable persistence boundary:
+Application-owned repository ports are the replaceable persistence boundaries:
 
 ```text
-ListTransactions -> TransactionRepository -> JsonTransactionRepository -> JsonFileDatabase
-GetTransaction  -> TransactionRepository -> JsonTransactionRepository -> JsonFileDatabase
+ListTransactions ─┐
+GetTransaction  ──┴─> TransactionRepository
+                         └─> JsonTransactionRepository
+                               └─> JsonFileDatabase
+
+CreateTransaction ─────┐
+ReverseTransaction ────┼─> TransactionCommandRepository
+PostPendingTransactions┘      └─> JsonTransactionCommandRepository
+                                  └─> JsonFileDatabase
 ```
 
 The JSON adapter reads the latest committed collection on every request, then
