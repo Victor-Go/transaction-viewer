@@ -794,3 +794,620 @@ idempotency records, idempotency cleanup, generic status API, status history,
 audit-event persistence, deletion, authentication, payment-network behavior, or
 frontend UI. The shared-file correctness model applies only to processes using
 the same physical JSON file.
+
+## Customer-facing Transaction frontend vertical slice
+
+### Complete implementation prompt record
+
+Implement the complete current Transaction frontend vertical slice using the
+complete source tree—including staged, unstaged, and untracked files—as the
+authority. Read all repository/workspace instructions, architecture,
+dependency, testing, contracts, backend endpoints/error codes, frontend and
+browser tooling, README, PROMPTS, and working-tree state before planning or
+editing. Do not change backend behavior or shared contracts without a
+demonstrated frontend-blocking defect, do not create a commit, and use honest
+focused Red-to-Green development before complete verification.
+
+Replace the shell with a polished responsive financial Transaction History:
+server-side All/Pending/Posted/Reversed filtering synchronized to URL search
+parameters, total counts, accessible single-DOM list rows, opaque keyset Load
+more, local CAD/date formatting, loading/empty/error/retry states, and a
+route-driven account ID. Add strict Create, nested route-driven Detail,
+Pending-to-Posted polling, fail-closed dynamic reversal eligibility, and
+confirmed Reverse flows. Create and Reverse must generate in-memory frontend
+Idempotency-Key values, reuse them only for uncertain outcomes, prevent
+duplicates, and never log/store/expose keys or financial payloads.
+
+Use the shared Zod contracts and public error registry as the DTO/runtime
+authority. Implement a thin native Fetch transport supporting GET/POST, JSON,
+headers, status, AbortSignal, successful schema validation, public error
+parsing, safe typed HTTP/network/contract/cancellation errors, malformed or
+empty payloads, 5xx, and no global UI side effects. Encode every path segment
+and preserve cursors opaquely.
+
+Use one React root and one context-based typed `OverlayProvider` with a
+discriminated programmatic union for Create and reversal confirmation plus
+controlled registration for route Detail. Keep one logical stack, centralized
+depth/z-index, topmost-only dismissal, and no global singleton, second root,
+event bus, keydown listener, manual focus trap, or legacy Modal compatibility.
+Use only Radix Dialog and AlertDialog. Responsive overlays must retain one
+content DOM and morph through CSS below 40rem into a safe-area-aware Bottom
+Sheet and at/above 40rem into a centered Modal. No user-agent checks, gestures,
+dragging, swipe behavior, sound, or JavaScript unmount timers.
+
+Centralize semantic color, system light/dark theme, z-index, radius, and motion
+tokens. Plain CSS owns Tailwind's entry, global reset, tokens, and theme;
+Tailwind owns straightforward layout/spacing/typography; SCSS Modules own
+complex local state, glass surfaces, pseudo-elements, Radix animations, and
+the responsive overlay morph. Use concise locally scoped class names, readable
+solid no-blur fallbacks, reduced motion, visible focus, touch-sized controls,
+textual statuses, and Neo-inspired but non-copying visual direction.
+
+Parse CAD text exactly into positive safe integer minor units, accepting one
+period or comma separator with at most two fractional digits and rejecting
+zero, negatives, exponent notation, ambiguity, excess precision, and unsafe
+results. Detail must fetch the single-resource endpoint, keep History mounted,
+handle loading/not-found/retry/invalid-contract states, display all public
+timestamps and eligibility, and explicitly close to the parent route. History
+and Detail reconcile through feature-local Outlet context, preserving immutable
+sort position, filter membership, counts, and ID deduplication.
+
+Only an open Pending Detail may poll. Use recursive two-second timeouts,
+non-overlapping requests, cleanup abort, visibility pause/resume, contained
+failure feedback, and terminal-status shutdown; use fake timers rather than
+real delays in tests. Reverse eligibility is `canReverse AND parsed deadline
+AND local clock <= deadline`, with one-second local clock updates while useful.
+Reverse must use a nested destructive AlertDialog, keep Detail underneath,
+remain open while submitting, disable all dismissal and duplicates, close only
+after known success, never update optimistically, reconcile returned
+timestamps, and deliberately handle every stable public business error.
+
+Add focused unit, Fetch/API, MSW integration, overlay/accessibility,
+responsive, polling, idempotency, and deterministic Playwright coverage for
+desktop lifecycle, mobile nested overlays, direct Detail, and keyboard focus.
+Update `apps/web/AGENTS.md`, focused frontend architecture documentation,
+README setup/behavior/limitations/AI usage, and this record. Run formatting,
+lint, typecheck, all tests, builds, `pnpm verify`, Playwright, complete
+working-tree/diff/package/lock inspection, and prohibited-pattern searches.
+Report actual results, limitations, and one recommended Conventional Commit
+without committing.
+
+### Implementation plan and architecture decisions
+
+The pre-edit plan was:
+
+1. Establish exact money/formatting, fail-closed eligibility, list
+   reconciliation, idempotency-attempt state, typed Fetch, and Transaction API
+   boundaries.
+2. Compose the one-root router/provider tree, unified Radix overlay stack,
+   shared accessible UI, and centralized token/theme/style pipeline.
+3. Implement History/Detail routing plus programmatic Create/Reverse,
+   cancellation/stale-response control, recursive polling, and dynamic
+   eligibility.
+4. Add focused MSW/unit/overlay tests and deterministic Playwright journeys.
+5. Update durable documentation, run complete verification, and audit the
+   whole current tree.
+
+The legacy Modal approach was replaced rather than wrapped. `BrowserRouter`,
+one `OverlayProvider`, and one programmatic host remain under the existing
+single React root. Detail registers as a controlled stack member; typed Create
+and reversal entries share depth and topmost state. Radix owns focus,
+background inertness, accessible Dialog/AlertDialog semantics, and Escape.
+Application code owns route close behavior, stack ordering, write-time
+dismissibility, and CSS presentation.
+
+History owns the filter-scoped list and exposes one reconciliation callback
+through Outlet context. Create closes, reconciles Pending, and navigates to
+Detail. Detail fetch/poll/reverse responses reconcile back into History.
+Reconciliation is ID-deduplicated, ordered by immutable transaction date/ID,
+and adjusts filtered membership/counts.
+
+The responsive overlay is one DOM across viewports, with no gestures.
+Centralized CSS custom properties own z-index calculations and motion timing.
+System preferences drive themes. Plain CSS/Tailwind/SCSS responsibilities and
+concise CSS Module naming are enforced in the Web instructions.
+
+Create and Reverse use the same pure in-memory attempt lifecycle. A semantic
+intent receives one UUID key; uncertain network/5xx results retain it,
+successful/explicit rejections clear it, and changed Create values start a new
+intent. The short backend posting transition and two-second polling remain
+explicit take-home demonstrations, not payment-network timing or a production
+notification recommendation.
+
+### Tests and observed Red-to-Green results
+
+- The first four model suites failed to resolve the absent formatting,
+  eligibility, reconciliation, and idempotency modules. The focused green run
+  passed 29 tests.
+- The first shared Fetch/Transaction adapter run failed to resolve both absent
+  modules. The focused green run passed 10 tests covering safe responses and
+  errors, path encoding, cursor preservation, strict bodies, and write
+  headers.
+- The first App integration run failed all four tests against the old shell:
+  History, direct Detail, Create, and nested reversal were absent. After the
+  initial implementation, Create validation was the first green branch; after
+  resolving a jsdom/native AbortSignal realm incompatibility at the Fetch
+  boundary, all four passed. The suite was then expanded to eight green MSW
+  scenarios for filtering/pagination, exact Create, uncertain same-key retry,
+  routing, nesting, and successful reversal.
+- Three recursive polling tests using fake timers and controlled promises were
+  added after the hook existed; they passed on their first run and prove
+  terminal shutdown, no overlap, visibility pause/resume, and unmount abort.
+  They are not presented as fabricated Red evidence.
+- The first browser run passed mobile and direct-route tests and failed desktop
+  Pending visibility plus route-unmount focus restoration. The deterministic
+  mock now models Strict Mode duplicate reads, and route state explicitly
+  restores focus to the History trigger. The next Playwright run passed all
+  four desktop/mobile/direct/keyboard workflows.
+- The first combined formatting/lint sequence found a synchronous Detail state
+  update inside an effect, a mutable interval declaration, and one Fast Refresh
+  warning. The effect/reset and style exports were corrected; lint then passed
+  without warnings.
+
+### Verification and deferred concerns
+
+The final `pnpm verify` passed formatting, lint, typecheck, all workspace tests,
+and all builds. Test totals were Contracts 145, API 226, and Web 50. The
+production Web build transformed 219 modules and emitted a 373.30 kB JavaScript
+bundle (116.26 kB gzip). The final Playwright run passed all four Chromium
+workflows in 4.0 seconds.
+
+Deliberately deferred concerns remain authentication/authorization, account
+selection, real payment processing, production event delivery, analytics,
+manual theme selection, persistent client caches, distributed scheduling, and
+database-backed reads. JSON persistence, approximately 5–10-second demo
+posting, and two-second open-Detail polling are constrained demonstration
+mechanisms. Browser coverage uses deterministic interception; backend protocol
+and persistence remain covered by the existing API/contract suites.
+
+## Prior Transaction correctness, date-range, shared controls, and localization
+
+### Complete repair-and-extension prompt record
+
+Repair and extend the complete current Transaction application using staged,
+unstaged, and untracked source as the authority, without committing. Preserve
+the approved vertical-slice architecture while correcting uncertain-write
+idempotency, History query preservation, Detail resource identity, overlay
+ownership/closing/dismissal/focus, and provenance-specific list
+reconciliation. Add a paired UTC `from`/`to` list contract with inclusive start,
+exclusive end, count-before-page semantics, and cursor scope validation.
+
+Add an accessible reusable React Aria date-range picker inside the existing
+overlay system. History must keep local `CalendarDate` values in
+`fromDate`/`toDate`, derive a loaded-row oldest/newest suggestion or a
+three-calendar-month fallback, separate draft from applied state, issue no
+request while editing, and issue exactly one first-page request on Apply after
+DST-safe local-midnight conversion. Add English/French i18next browser
+detection, saved-choice precedence, regional normalization, English fallback,
+`en-CA`/`fr-CA` display formatting, complete resources, and a Radix Select
+language control before the account label.
+
+Create reusable shared Input, CurrencyInput, and Select controls. Currency
+drafts must remain text, accept editable decimal intermediate states, and
+reject alphabetic/financially unsafe input. Preserve Merchant Name's strict
+trimmed 1–120-character contract. Keep desktop amount right edges aligned and
+give the single shared mobile row DOM a clear merchant/date, amount, status,
+action hierarchy. Update durable instructions and documentation, record honest
+Red-to-Green evidence, run all required checks plus desktop/mobile Playwright,
+audit prohibited patterns and repository state, recommend one Conventional
+Commit, and do not create it.
+
+### Correctness findings and decisions
+
+- Successful responses that fail runtime schema validation are uncertain write
+  outcomes. `ResponseContractError` now retains the original in-memory
+  Idempotency-Key for both Create and Reverse retries.
+- Detail links append the complete History search string. The route element is
+  keyed by encoded account/transaction identity, aborts obsolete reads, and
+  cannot render a late response from the prior identity.
+- Programmatic entries may declare `ownerId`. Closing marks a parent and every
+  descendant as closing; removal and controlled-owner unregistration
+  recursively remove descendants. This prevents a reversal confirmation from
+  surviving route-owned Detail teardown.
+- Radix remains the dismissal/focus owner. AlertDialog has one explicit
+  backdrop pointer path; Dialog uses Radix outside interaction. Closing entries
+  stay mounted for CSS `data-state="closed"` animation and are removed by its
+  animation event, with a no-animation environment fallback and no JavaScript
+  duration constant.
+- List mutations are provenance-specific. Single-resource reads only update a
+  loaded ID, confirmed Create may prepend/increment when it matches the active
+  filter, and status transitions add/update/remove according to prior and next
+  membership. Unloaded Detail reads never increment `totalCount`.
+- The public date contract accepts both UTC instants or neither and requires
+  `from < to`. Repository filtering is `transactionDate >= from &&
+transactionDate < to`; exact count follows account/status/date filtering and
+  precedes cursor/page slicing. Cursor payloads bind normalized account,
+  status, `from`, and `to`.
+- The earlier picker initialization and action model was superseded by the
+  explicit, unbounded-default Search by Date decision recorded below. Absolute
+  bounds remain 1970-01-01 through local today.
+- Draft dates live inside the overlay. Cancel changes neither URL nor network
+  state; explicit Search writes both calendar-date parameters and triggers one
+  replacement first-page query. The inclusive end becomes next-day local
+  midnight before UTC conversion, avoiding end-of-day arithmetic and handling
+  DST.
+- React Aria Components owns date-field/calendar accessibility. Radix Select
+  owns the one shared Select implementation and portals on the centralized
+  popover layer.
+- i18next with the browser detector checks saved preference before navigator
+  language, normalizes English/French regional tags, falls back to English, and
+  persists only the normalized language. Symmetric local resources cover every
+  customer-visible string; API enums remain unchanged. The selected language
+  controls CAD, date/time, calendar, and count formatting through `en-CA` or
+  `fr-CA`.
+- Shared Input owns native input semantics and error/hint wiring. CurrencyInput
+  composes it with `inputMode="decimal"` and rejects invalid controlled drafts
+  before state changes. The localized placeholder is supplied by the feature.
+  Desktop rows use a stable grid and fixed right-aligned amount column; mobile
+  reflows the same DOM into its visual hierarchy.
+
+### Tests and observed Red-to-Green results
+
+- The first focused contract run had one failure because `from`/`to` were
+  rejected as unknown. The first focused API run had four failures: the
+  application dropped the range, changing range did not invalidate a cursor,
+  valid HTTP dates returned 400, and repository count ignored dates. After the
+  contract/application/repository/cursor/HTTP implementation, the contract
+  suite passed 67/67, focused API suites passed 37/37, and the expanded
+  end-to-end API integration suite passed 16/16.
+- Frontend tests first produced eight intended failures: response-contract
+  failures were not uncertain, provenance list operations were absent,
+  malformed Create success changed its key, and Detail navigation dropped
+  History search. The corrected focused API/list/App runs passed.
+- Localization/date/form-control tests initially could not resolve the new
+  modules, and the pre-existing CurrencyInput accepted invalid alphabetic
+  state. The completed focused group passed 43/43. A CalendarDate maximum test
+  was corrected after confirming the library deliberately clamps its supported
+  year range; product bounds remain independently validated.
+- The expanded App suite passes 16/16, including malformed Create/Reverse
+  same-key retries, date draft/Cancel/Apply request behavior, French persistence
+  and formatting, complete query survival, stale Detail response isolation,
+  and route-owner descendant cleanup.
+- Controlled overlay tests pass 2/2 and prove that a closing overlay waits for a
+  manually dispatched animation event and that one backdrop pointer action
+  produces one close request. The existing fake-timer polling and exact
+  deadline suites remain green.
+- The first complete typecheck found two test fixtures whose conditional
+  `status`/`reversedAt` values did not preserve the domain discriminated union;
+  explicit discriminated spreads fixed both without weakening assertions. The
+  first lint run reported a date-range object dependency and a Fast Refresh
+  helper export; primitive range dependencies and a separate pure helper module
+  resolved both, leaving lint with no warnings.
+
+### Verification and remaining limitation
+
+Before the final `pnpm verify`, the explicit required commands passed:
+`pnpm format`, `pnpm format:check`, `pnpm lint` with no warnings,
+`pnpm typecheck`, `pnpm test` (Contracts 155, API 234, Web 100), and
+`pnpm build`. The production Web build transformed 1,539 modules and emitted a
+724.54 kB JavaScript chunk (231.69 kB gzip); Vite reported its non-failing
+greater-than-500-kB chunk-size warning. Playwright passed all five Chromium
+desktop, mobile, direct-route, keyboard-focus, and date/localization workflows
+in 6.4 seconds.
+
+The subsequent `pnpm verify` also passed formatting, zero-warning lint,
+typecheck, the same 489 workspace tests, and all builds. It repeated the same
+non-failing client chunk-size warning.
+
+The larger client chunk is the remaining implementation warning and a sensible
+future code-splitting target. Authentication/authorization, production data
+storage, real posting/event delivery, and distributed scheduling remain
+outside this assignment's scope.
+
+## Search by Date redesign and Transaction frontend correctness
+
+### Complete implementation prompt
+
+Implement the approved Search by Date redesign against the complete current
+source tree, including staged and untracked files, without creating a commit.
+Read all repository and workspace instructions, frontend architecture,
+dependency, accessibility, and testing documentation; inspect the current
+History, URL/API date behavior, shared picker, React Aria, overlay stack,
+reconciliation, status filtering, localization, pagination, all relevant
+tests, README, PROMPTS, and every worktree state before planning or editing.
+Use honest test-driven development for observable behavior and retain the
+backend's optional paired UTC instants, inclusive `from`, exclusive `to`,
+date-scoped cursor, and post-filter `totalCount`.
+
+The required product model is date-unbounded History by default. Search by Date
+opens with an empty Start/End and today's localized month unless a range is
+already applied. Draft field edits, date-cell selection, adjacent-month
+selection, and month navigation remain local: they must not change URL, rows,
+cursor, count, background History, or network state. Only enabled, guarded
+Search may validate and write inclusive local `fromDate`/`toDate`, preserve
+status, discard pages/cursor, close, and issue one first-page request. Cancel,
+close, Escape, and backdrop discard the draft. An identical applied range
+should avoid a practical refetch.
+
+An applied localized range replaces the inactive control and remains editable;
+a separate close-icon button clears it with an accessible name containing the
+range. Clear removes only the date parameters, preserves status, aborts or
+invalidates the range request, discards range rows/cursor, requests one
+unbounded first page, restores a stable toolbar focus target, and returns the
+inactive control. Status and date are independent query dimensions, each reset
+pagination when changed, and date controls must sit outside the status-labelled
+ARIA group.
+
+Client reconciliation must use one deterministic complete-query predicate over
+status and optional local date range, with invalid transaction dates failing
+safely and boundaries matching the UTC API conversion. Confirmed Create,
+Detail/polling transitions, and Reverse updates use it so membership and
+`totalCount` change exactly once, outside-range transactions never appear, and
+IDs remain deduplicated. Shared DateRangePicker code must not import Transaction
+feature code; generic range types and validation belong in shared date
+primitives or public library types.
+
+Every displayed month must contain exactly 42 real cells across six
+locale-derived weeks. Preceding/following-month dates are visible, muted when
+unselected, readable in both themes, keyboard reachable, selectable within
+min/max, and disabled outside bounds. Selecting one updates the draft and month
+context without a request. Range styling must be continuous: strong rounded
+start/end points, a lighter connected middle, a clear single-day state,
+cross-month selection styling, and visible hover/focus, driven by React Aria
+state attributes and semantic tokens.
+
+Applied URL dates stay `YYYY-MM-DD`. Requests convert local Start midnight and
+the midnight after inclusive End to UTC ISO without end-of-day, fixed-day,
+offset, locale-string, or fixed-90-day arithmetic. Bounds remain 1970-01-01
+through local today. Empty states must distinguish no query, status only, date
+only, and combined status/date, remain localized in English/French, and never
+offer a first-transaction explanation merely because a search is empty.
+
+AlertDialog Cancel must have one structural close source and call close once,
+while retaining animation, focus restoration, and owner cleanup. Continue
+using the local currentColor decorative Calendar icon. Add every new visible
+and accessible string in English and French with `en-CA`/`fr-CA` formatting
+and localized status labels.
+
+Cover the pure URL transformations, UTC boundaries, complete-query membership,
+all mutation transitions, picker empty/applied drafts, zero-request editing,
+validity, cancellation, one Search emission, 42 cells across natural month
+shapes, adjacent/min-max/keyboard behavior, continuous/single-day attributes,
+History Search/Clear/status/cursor/request behavior, query-aware English/French
+empty states, outside-range Create and transitions, overlay-stack reuse,
+single Cancel close, dismissal/focus, and responsive shared DOM. Replace the
+desktop, mobile, and French Playwright date workflows. Update Web instructions,
+README, architecture documentation, and this record; run formatting, lint,
+typecheck, all tests, builds, verification, relevant Playwright, complete git
+and dependency audits, and prohibited-pattern searches. Report actual results,
+limitations, and one Conventional Commit recommendation without committing.
+
+Explicitly excluded behavior: automatic querying while selecting, loaded-row
+default ranges or reset, presets, time selection, local-only result filtering,
+another calendar or overlay system, drag/swipe, infinite-scroll observers, and
+arbitrary status modification.
+
+### Product and architecture decisions
+
+- Default History is unbounded and Search by Date owns an empty-or-applied
+  overlay draft. Applied state exists only in URL parameters and the active API
+  query.
+- The toolbar exposes an independently labelled status group and separate date
+  controls. Applied edit and Clear are distinct controls with localized range
+  names.
+- The shared picker depends on shared `CalendarDateRange` validation and the
+  existing React Aria system. `weeksInMonth={6}` supplies 42 real cells, while
+  a shared cell adapter makes valid adjacent dates selectable and exposes
+  semantic range attributes.
+- `TransactionListQuery` combines status, local range, and timezone.
+  `matchesActiveQuery` converts that range through the same DST-safe UTC
+  boundary function used by HTTP requests.
+- Radix AlertDialog Cancel exclusively owns its structural close; the nested
+  Button no longer repeats the callback.
+
+### Observed Red-to-Green results
+
+- The first URL/query focused run produced 15 intended failures because the URL
+  transformations, full-query predicate, and query-shaped reconciliation did
+  not exist. After implementation, the two suites passed 21/21.
+- The first picker run produced six intended failures: empty drafts were not
+  supported, natural month grids were not fixed at 42, adjacent dates were
+  disabled, and a cross-month middle cell was not selected. After the shared
+  React Aria six-week/adjacent-cell implementation, the picker suite passed
+  9/9.
+- The superseded History tests then failed on the prior date-range language and
+  action model. Updated MSW/RTL workflows passed together with URL/status
+  preservation, one Search request, one Clear request, cursor invalidation,
+  range controls, focus restoration, English/French empty states, and
+  outside-range Create behavior.
+- The broader focused implementation group passed 57/57 before the final
+  History and picker additions. After correcting pointer/React Aria range
+  coordination, the final picker plus History integration run passed 29/29.
+- The first complete date-workflow Playwright run exposed two real test and
+  interaction issues: development Strict Mode created an additional baseline
+  request, and adjacent-date pointer selection lost its first anchor. The tests
+  now measure requests relative to the loaded baseline, and the picker
+  suppresses duplicate React Aria changes only while coordinating a manual
+  pointer range. The completed workflows then passed.
+- A later backdrop-draft regression exposed that relying only on Radix's
+  outside-pointer path was not sufficient after an intercepted calendar cell
+  press. The shared Dialog backdrop now owns one explicit close request, with a
+  component regression proving a single callback and Playwright proving the
+  draft is discarded.
+
+### Final verification
+
+The explicit required commands all passed: `pnpm format`,
+`pnpm format:check`, `pnpm lint` with no warnings, `pnpm typecheck`,
+`pnpm test`, and `pnpm build`. The complete test run passed 155 Contracts,
+234 API, and 124 Web tests (523 total).
+
+The subsequent final `pnpm verify` repeated and passed formatting, lint,
+typecheck, all 525 workspace tests (155 Contracts, 234 API, and 126 Web), and
+every build. The production Web build transformed 1,542 modules and emitted a
+726.39 kB JavaScript chunk (232.81 kB gzip). Vite
+reported its non-failing greater-than-500-kB chunk-size warning.
+
+The final Playwright execution passed all seven Chromium workflows in 6.4
+seconds, including the desktop Search/edit/paginate/Clear flow, mobile
+six-week/adjacent-date flow, and French localization flow.
+
+The remaining known implementation warning is the existing large client
+bundle, for which route-level code splitting is a suitable follow-up.
+Authentication/authorization, production persistence and event delivery remain
+outside this assignment's scope.
+
+## Search by Date deterministic calendar repair
+
+### Prompt and objective
+
+Repair the complete current Search by Date implementation using the full source
+tree, including staged and untracked work, without creating a commit. Remove
+all mutation of React Aria `RangeCalendarStateContext`, `Object.assign` state
+patches, replacements of `visibleRange`, `selectDate`, `isSelected`, and
+`isCellDisabled`, pointer anchor/completed-range refs, forced
+`isOutsideMonth: false`, guarded field changes, pointer event bypasses, and
+multi-setter selection. Replace them with a documented public primitive and one
+controlled draft shared by pointer, keyboard, Start/End fields, and validation;
+keep displayed month independent and navigation-button-only.
+
+The repaired calendar must give immediate first-click feedback, normalize
+reverse and same-day ranges, render 42 real dates for every month, keep valid
+outside dates visible/selectable without changing the heading, distinguish
+current/outside/disabled states, use circular hover and continuous range
+styling, retain localized accessible interaction, and remain draft-only until
+explicit Search. Use an isolated DST-safe `Date`/`CalendarDate` adapter if
+needed. Initial empty search must show no error, while incomplete interaction
+does. Preserve the existing URL/API, overlay, i18n, status, pagination, and
+single-request semantics.
+
+Add focused adapter, state, field, keyboard, fixed-week, adjacent-day,
+modifier/style, validation, integration, StrictMode, MSW, and deterministic
+desktop/mobile/French Playwright coverage. Update Web rules, frontend
+architecture, customer documentation only where behavior changes, and this
+record. Run format, format check, lint, typecheck, all tests, build, verify,
+relevant Playwright, complete git/dependency audits, and prohibited-pattern
+searches. Report actual results and limitations without committing.
+
+### Root cause and implementation decision
+
+The previous picker attempted to extend a React Aria range calendar beyond its
+public visible-range behavior by replacing methods and values on private
+context state. Independent pointer refs then competed with React Aria and the
+DateFields, so the first click could be invisible and outside-day pointer and
+keyboard behavior diverged.
+
+The calendar grid now uses exactly pinned `react-day-picker` 10.0.1, while
+React Aria remains responsible for the DateFields and the repository's
+OverlayProvider/ResponsiveOverlay remain unchanged. One controlled
+`CalendarDateDraft` is the selection source. DayPicker's controlled `month`,
+`fixedWeeks`, `showOutsideDays`, range selection, public modifiers, and custom
+DayButton API provide the grid behavior. The only separate state is
+`displayedMonth`. A shared local-midday adapter isolates all JavaScript Date
+conversion.
+
+### Observed Red-to-Green results
+
+- The initial adapter test failed because the adapter module did not exist; its
+  DST and year-boundary round trips pass after adding the local-midday adapter.
+- The first-click test failed because the previous picker emitted no change;
+  the initial empty-overlay test failed because incomplete validation was shown
+  immediately. After the controlled draft and interaction tracking changes,
+  the focused History workflow passes and the first click updates Start while
+  retaining an incomplete draft.
+- The adjacent-month heading test initially exposed a duplicate-heading test
+  selector in the old DOM; after using its accessible heading, the product
+  assertion passed. DayPicker's controlled boundary focus then exposed that its
+  default arrow behavior tried to page at an outside date. The public custom
+  DayButton now moves focus among the 42 rendered, enabled dates without
+  changing `displayedMonth`; the fixed-week/adapter/picker group passes 21/21.
+- The full App integration run initially exposed focus being applied to the
+  soon-to-be-unmounted applied-range control during Clear. A post-render effect
+  now restores focus to the stable Search by date control; App passes 21/21.
+
+### Final verification
+
+All requested commands passed: `pnpm format`, `pnpm format:check`, `pnpm lint`
+with no warnings, `pnpm typecheck`, `pnpm test`, `pnpm build`, and `pnpm
+verify`. The final full workspace run passed 155 Contracts, 234 API, and 139 Web
+tests (528 total). The production build transformed 2,576 modules and emitted a
+749.72 kB JavaScript chunk (237.87 kB gzip); Vite retained its
+non-failing greater-than-500-kB chunk warning.
+
+The first relevant Playwright run passed desktop, mobile, and keyboard workflows
+but exposed that the French test queried weekday headings through a role the
+primitive intentionally hides from the accessibility tree. The assertion now
+verifies the French accessible date name. The rerun passed all four Search by
+Date Chromium workflows, and the final rerun passed them in 5.6 seconds.
+
+One post-change `pnpm verify` attempt encountered six unrelated API
+filesystem-test timeouts at the common five-second limit under transient
+parallel load; formatting, lint, typecheck, and Web tests passed in that
+attempt. No timeout was increased and no test was weakened. An unchanged rerun
+completed successfully with all 528 tests and builds passing.
+
+The final source search found none of the prohibited state mutation, pointer
+anchor, forced outside-month, debug, focused-test, or skipped-test patterns.
+The only known limitation is the existing large production bundle warning;
+adding DayPicker increased the built client chunk, so route/vendor splitting is
+a suitable follow-up.
+
+## Search by Date final range semantics
+
+### Prompt and approved decisions
+
+Repair and finalize the complete current Search by Date implementation from the
+full source tree without creating a commit. Keep React DayPicker,
+`@internationalized/date`, the existing URL/API contract, query composition,
+pagination, localization, and Overlay stack. Replace editable Start/End fields
+with read-only localized summaries and make one pure reducer own all pointer,
+keyboard, same-day, reverse-order, adjacent-day, and complete-range restart
+transitions. Incomplete selection must disable Search without displaying an
+error.
+
+Keep the selected draft independent from the displayed month. Render 42 real
+dates, retain selectable adjacent days without month jumps, and add localized
+previous/next month plus previous/next year step controls bounded by
+1970-01-01 and the current local month. Preserve continuous two-layer range
+styling. Format compact applied ranges with conditional years through `Intl`:
+omit current-year years, show a shared historical year once, and show both
+years for cross-year ranges. Only Search may request Transactions.
+
+Remove duplicate Overlay backdrop close callbacks so Radix `onOpenChange` is
+the single dismissal source, retain dismissal prevention and focus/animation
+behavior, remove obsolete incomplete-range translations, and remove unused
+React Aria direct dependencies and lockfile entries. Update durable Web rules,
+frontend architecture, customer documentation, component/integration/browser
+tests, and report only verification actually run.
+
+### Implementation and observed Red-to-Green results
+
+The range-reducer and conditional-year formatter tests first failed because
+their exports did not exist. The pure discriminated-draft reducer then passed
+all empty, later, earlier, same-day, completed-restart, immutability, month, and
+year comparisons. Formatter tests passed after using locale-owned
+`Intl.DateTimeFormat.formatRange` punctuation.
+
+The read-only summary, complete-range restart, and year-navigation component
+tests first failed against the editable React Aria DateFields and two-button
+header. They passed after DayPicker selection was routed through the reducer,
+summaries replaced fields, and four controlled navigation buttons were added.
+The same-day interaction exposed missing endpoint modifiers after an
+interactive update; explicit public DayPicker range-start/range-end modifiers
+made the selected day deterministic.
+
+The AlertDialog backdrop regression first failed because the custom Overlay
+handler invoked `onClose`. Removing custom backdrop close handlers made
+AlertDialog retain Radix outside-dismissal semantics and left Dialog backdrop
+and Escape actions producing one close request through `onOpenChange`.
+
+### Verification
+
+The final focused run passed 80/80 tests across the reducer, formatter, picker,
+Overlay, and App/MSW integration files. `pnpm format`, `pnpm format:check`,
+`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, and `pnpm verify`
+all passed. The workspace test run passed 155 Contracts, 234 API, and 153 Web
+tests (542 total).
+
+The production build transformed 1,343 modules and emitted a 617.04 kB client
+chunk (194.11 kB gzip). Vite retained its non-failing greater-than-500-kB
+chunk warning. The four relevant Chromium Playwright workflows passed in 6.9
+seconds: desktop explicit Search/edit/Clear, mobile fixed-week adjacent dates,
+keyboard cross-month selection, and French localization.
+
+Final dependency and prohibited-pattern searches found no React Aria direct
+imports, editable DateFields, incomplete-range translation, third-party state
+mutation, pointer-anchor state, forced outside-month values, duplicate
+backdrop close handler, debug logging, focused tests, or skipped tests. The
+only known limitation is the existing client bundle-size warning; direct
+month/year dropdown selection remains intentionally outside the assignment.

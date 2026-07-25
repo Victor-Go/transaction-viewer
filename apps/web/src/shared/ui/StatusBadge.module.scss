@@ -1,0 +1,33 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.32rem 0.62rem;
+  font-size: 0.78rem;
+  font-weight: 780;
+
+  &::before {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    background: currentColor;
+    content: '';
+  }
+}
+
+.pending {
+  color: var(--color-pending);
+  background: var(--color-pending-soft);
+}
+
+.posted {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.reversed {
+  color: var(--color-reversed);
+  background: var(--color-reversed-soft);
+}

@@ -42,7 +42,11 @@ export class JsonTransactionRepository implements TransactionRepository {
       'transactions',
       (record) =>
         record.accountId === criteria.accountId &&
-        (criteria.status === undefined || record.status === criteria.status),
+        (criteria.status === undefined || record.status === criteria.status) &&
+        (criteria.from === undefined ||
+          new Date(record.transactionDate) >= criteria.from) &&
+        (criteria.to === undefined ||
+          new Date(record.transactionDate) < criteria.to),
     );
     const totalCount = records.length;
     const transactions = records
@@ -56,6 +60,8 @@ export class JsonTransactionRepository implements TransactionRepository {
             ...(criteria.status === undefined
               ? {}
               : { status: criteria.status }),
+            ...(criteria.from === undefined ? {} : { from: criteria.from }),
+            ...(criteria.to === undefined ? {} : { to: criteria.to }),
           });
     const afterBoundary =
       boundary === undefined
@@ -89,6 +95,8 @@ export class JsonTransactionRepository implements TransactionRepository {
       nextPageToken: this.#codec.encode({
         accountId: criteria.accountId,
         ...(criteria.status === undefined ? {} : { status: criteria.status }),
+        ...(criteria.from === undefined ? {} : { from: criteria.from }),
+        ...(criteria.to === undefined ? {} : { to: criteria.to }),
         transactionDate: last.transactionDate,
         id: last.id,
       }),

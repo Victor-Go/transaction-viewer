@@ -188,6 +188,75 @@ describe('listTransactionsQuerySchema', () => {
       }).success,
     ).toBe(false);
   });
+
+  it('accepts an inclusive UTC from and exclusive UTC to together', () => {
+    expect(
+      listTransactionsQuerySchema.parse({
+        from: '2026-04-01T07:00:00.000Z',
+        to: '2026-07-25T07:00:00.000Z',
+      }),
+    ).toEqual({
+      from: '2026-04-01T07:00:00.000Z',
+      to: '2026-07-25T07:00:00.000Z',
+      pageSize: 20,
+    });
+  });
+
+  it.each([
+    ['only from', { from: '2026-04-01T00:00:00.000Z' }],
+    ['only to', { to: '2026-07-25T00:00:00.000Z' }],
+    [
+      'equal boundaries',
+      {
+        from: '2026-04-01T00:00:00.000Z',
+        to: '2026-04-01T00:00:00.000Z',
+      },
+    ],
+    [
+      'reversed boundaries',
+      {
+        from: '2026-07-25T00:00:00.000Z',
+        to: '2026-04-01T00:00:00.000Z',
+      },
+    ],
+    [
+      'a non-UTC offset',
+      {
+        from: '2026-04-01T00:00:00-07:00',
+        to: '2026-07-25T00:00:00-07:00',
+      },
+    ],
+    [
+      'surrounding whitespace',
+      {
+        from: ' 2026-04-01T00:00:00.000Z',
+        to: '2026-07-25T00:00:00.000Z',
+      },
+    ],
+    [
+      'a malformed timestamp',
+      {
+        from: '2026-02-30T00:00:00.000Z',
+        to: '2026-07-25T00:00:00.000Z',
+      },
+    ],
+    [
+      'repeated from values',
+      {
+        from: ['2026-04-01T00:00:00.000Z', '2026-04-02T00:00:00.000Z'],
+        to: '2026-07-25T00:00:00.000Z',
+      },
+    ],
+    [
+      'repeated to values',
+      {
+        from: '2026-04-01T00:00:00.000Z',
+        to: ['2026-07-25T00:00:00.000Z', '2026-07-26T00:00:00.000Z'],
+      },
+    ],
+  ])('rejects %s', (_description, query) => {
+    expect(listTransactionsQuerySchema.safeParse(query).success).toBe(false);
+  });
 });
 
 describe('listTransactionsResponseSchema', () => {

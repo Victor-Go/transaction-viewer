@@ -74,6 +74,16 @@ describe('GET /api/v1/accounts/:accountId/transactions', () => {
     ['/api/v1/accounts/acc_demo/transactions?status=declined'],
     ['/api/v1/accounts/acc_demo/transactions?pageSize=0'],
     ['/api/v1/accounts/acc_demo/transactions?pageSize=20&pageSize=30'],
+    [
+      '/api/v1/accounts/acc_demo/transactions?from=2026-04-01T00%3A00%3A00.000Z',
+    ],
+    ['/api/v1/accounts/acc_demo/transactions?to=2026-07-25T00%3A00%3A00.000Z'],
+    [
+      '/api/v1/accounts/acc_demo/transactions?from=2026-04-01T00%3A00%3A00.000Z&to=2026-04-01T00%3A00%3A00.000Z',
+    ],
+    [
+      '/api/v1/accounts/acc_demo/transactions?from=2026-04-01T00%3A00%3A00.000Z&from=2026-04-02T00%3A00%3A00.000Z&to=2026-07-25T00%3A00%3A00.000Z',
+    ],
   ])('maps invalid requests to INVALID_REQUEST for %s', async (url) => {
     const listTransactions = {
       execute: async () => ({
@@ -96,5 +106,39 @@ describe('GET /api/v1/accounts/:accountId/transactions', () => {
     expect(apiErrorResponseSchema.parse(response.body).error.code).toBe(
       API_ERROR_CODES.INVALID_REQUEST,
     );
+  });
+
+  it('passes normalized date boundaries to the application', async () => {
+    let receivedInput: unknown;
+    const listTransactions = {
+      execute: async (input) => {
+        receivedInput = input;
+        return {
+          transactions: [],
+          pageSize: 20,
+          totalCount: 0,
+          hasMore: false as const,
+          nextPageToken: null,
+        };
+      },
+    } satisfies ListTransactionsExecutor;
+    const response = await request(
+      createApp({
+        listTransactions,
+        ...writeDependencies,
+        logger: NOOP_LOGGER,
+      }),
+    ).get(
+      '/api/v1/accounts/acc_demo/transactions?status=posted&from=2026-04-01T07%3A00%3A00.000Z&to=2026-07-25T07%3A00%3A00.000Z',
+    );
+
+    expect(response.status).toBe(200);
+    expect(receivedInput).toEqual({
+      accountId: 'acc_demo',
+      status: 'posted',
+      pageSize: 20,
+      from: new Date('2026-04-01T07:00:00.000Z'),
+      to: new Date('2026-07-25T07:00:00.000Z'),
+    });
   });
 });

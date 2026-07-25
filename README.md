@@ -29,11 +29,111 @@ pnpm verify
 
 `pnpm verify` checks formatting, linting, types, unit/integration tests, and builds. Playwright tests remain separate under `tests/e2e`.
 
+## Local development
+
+Install dependencies and run both applications:
+
+```sh
+pnpm install
+pnpm dev
+```
+
+The API runs at `http://127.0.0.1:3000` and Vite runs at
+`http://127.0.0.1:5173`. Vite proxies `/api` to the API. The default generated
+demo account is `acc_demo`.
+
+## Transaction web experience
+
+Available browser routes:
+
+- `/` redirects to `/accounts/acc_demo/transactions`.
+- `/accounts/:accountId/transactions` renders Transaction History.
+- `/accounts/:accountId/transactions/:transactionId` keeps History mounted and
+  opens a route-driven Transaction Detail overlay.
+
+History is date-unbounded by default and begins with the newest Transactions.
+All omits the `status` query parameter; Pending, Posted, and Reversed
+synchronize a lowercase `status` search parameter. Search by Date opens with an
+empty draft unless a range is already applied. Calendar selection and
+month/year navigation stay local and issue no request until Search is
+activated. Start and End are read-only localized summaries. The first click
+sets Start, the second normalizes and completes the range (including one-day
+ranges), and the next click after completion starts a new range.
+
+Search stores inclusive local `fromDate`/`toDate` calendar dates in the URL,
+preserves the status filter, discards loaded pages and the old cursor, and
+requests one new first page. An applied localized range replaces Search by Date
+and is paired with a separate Clear control. Clear removes only the date
+parameters, preserves status, drops the date-scoped cursor and rows, and
+requests one unbounded first page. The calendar always renders six real weeks;
+valid preceding- and following-month dates are visible and selectable. Selecting
+one of those adjacent dates keeps the current month heading and grid in place;
+only the previous/next month and previous/next year step buttons navigate the
+calendar. Direct month/year dropdowns are intentionally omitted to keep the
+take-home interaction focused. Applied current-year ranges omit years, ranges
+within one historical year show it once, and cross-year ranges show both years.
+
+At the API boundary, the local start midnight and the midnight after the
+inclusive end are serialized as UTC `[from, to)` instants. Keyset pagination
+uses Load more and returns each opaque `nextPageToken` unchanged. Confirmed
+Create and status/reversal updates reconcile against the complete active
+status-and-date query rather than status alone. Search controls, empty states,
+applied ranges, dates, and accessible names are presented in English or French
+using `en-CA` or `fr-CA`.
+
+Create Transaction is a programmatic overlay rather than a route. It accepts a
+merchant and an exactly parsed CAD amount, sends only the strict shared request
+contract, generates an in-memory frontend `Idempotency-Key`, and reuses that
+key when a network or server outcome is uncertain. Success reconciles the new
+Pending purchase into History and navigates to its Detail route. Response
+`Location` values never cause external navigation.
+
+Detail uses the account-scoped single-resource endpoint. Dates, timestamps,
+and the reversal deadline display in the user's local timezone. An eligible
+Posted transaction can open a nested destructive AlertDialog. The frontend
+fails closed when `canReverse` is false, the deadline is invalid, or the local
+clock passes the deadline; the backend remains authoritative. Reversal is not
+optimistic, and a successful response supplies the final status and
+timestamps.
+
+The application follows the system light/dark preference without storing a
+user theme. Customer UI is available in English and French. A saved language
+choice overrides browser detection; regional locales normalize to English or
+French, unsupported locales fall back to English, and display formatting uses
+`en-CA` or `fr-CA`. Below 40rem, the same accessible overlay panel DOM is presented as
+a safe-area-aware Bottom Sheet; at and above 40rem it is a centered Modal.
+Radix Dialog and AlertDialog provide focus trapping, focus restoration,
+Escape handling, accessible naming, and background interaction blocking.
+Reduced-motion preferences are respected.
+
+Plain CSS owns Tailwind's entry, reset, theme, color, z-index, and motion
+tokens. Tailwind handles straightforward layout and spacing; component-local
+SCSS Modules handle glass surfaces, complex state, and the responsive
+Modal-to-Bottom-Sheet morph. Solid fallbacks remain readable when backdrop blur
+is unavailable.
+
+The short Pending-to-Posted transition and two-second client polling are
+take-home demonstration mechanisms. They make asynchronous state changes
+visible during a short review session and do not represent real
+payment-network posting times or the preferred production notification
+architecture.
+
+Specifically, the backend's five-second eligibility threshold is reconciled by
+a five-second scheduler, producing an approximately 5–10-second visible demo
+period. Only an open Pending Detail polls every two seconds. Production could
+use event-driven refresh, server push, durable messaging, or another
+coordinated background mechanism instead.
+
 ## Architecture
 
 API business modules live under `apps/api/src/modules`. A module may contain `domain`, `application`, `infrastructure`, and `http` layers as it gains real behavior. Only external HTTP contracts shared by applications belong in `packages/contracts`.
 
-The web application is feature-oriented. Transaction-specific API access, state, and UI will live under `features/transactions`; transport-level Fetch behavior belongs under `shared/api`.
+The web application is feature-oriented. Transaction-specific API access,
+state, and UI live under `features/transactions`; transport-level Fetch
+behavior belongs under `shared/api`. The unified overlay controller lives under
+`shared/overlays`, while the application layer maps its typed overlay requests
+to feature content. See
+[`docs/architecture/frontend-transactions.md`](docs/architecture/frontend-transactions.md).
 
 ## Transaction API
 
@@ -42,14 +142,16 @@ The API listens on port `3000` by default and preserves the independent
 
 `GET /api/v1/accounts/:accountId/transactions` returns a read-only,
 keyset-paginated transaction list. It accepts optional `status` (`pending`,
-`posted`, or `reversed`), `pageSize` (default 20, maximum 100), and opaque
-`pageToken` query parameters. Clients must return `nextPageToken` unchanged and
-must not interpret it.
+`posted`, or `reversed`), `pageSize` (default 20, maximum 100), opaque
+`pageToken`, and paired UTC `from`/`to` query parameters. `from` is inclusive,
+`to` is exclusive, both dates are required together, and `from` must precede
+`to`. Clients must return `nextPageToken` unchanged and must not interpret it.
 
 Results are always ordered by `transactionDate` descending and then `id`
 descending. Response metadata contains `pageSize`, `returnedCount`,
 `totalCount`, `hasMore`, and `nextPageToken`. `totalCount` is calculated after
-account/status filtering and before cursor/page slicing.
+account/status/date filtering and before cursor/page slicing. Cursors are
+scoped to the complete account, status, and applied-date query.
 
 Each request reads the latest committed JSON file; page requests do not share
 snapshot isolation and `totalCount` may change between them. Head insertions do
@@ -249,3 +351,17 @@ responsible for log collection and persistence. Sensitive tokens and
 credentials are redacted, and the application does not create local log files.
 Logs exclude transaction records, account IDs, merchant names, amounts, cursor
 payloads, complete database contents, and absolute database paths.
+
+## Production limitations and AI usage
+
+This take-home intentionally omits authentication, authorization, account
+selection, real payment processing, production notifications, analytics,
+distributed scheduling, database-backed querying, and manual theme selection.
+JSON persistence, short posting timing, and client polling are demonstration
+constraints rather than production recommendations.
+
+AI assistance was used to interpret the complete frontend vertical-slice
+requirements, plan architecture and tests, implement the typed API/overlay/UI
+boundaries, and record actual verification. The durable decisions and
+Red-to-Green evidence are maintained in `PROMPTS.md`; the source tree, shared
+contracts, and executed checks remain the authority.

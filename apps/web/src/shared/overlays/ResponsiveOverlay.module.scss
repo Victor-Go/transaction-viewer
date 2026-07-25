@@ -1,0 +1,163 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(
+    var(--z-overlay-base) + (var(--overlay-depth) * var(--z-overlay-interval))
+  );
+  background: var(--color-overlay-backdrop);
+
+  &[data-state='open'] {
+    animation: fadeIn var(--duration-overlay-enter) var(--easing-overlay-enter);
+  }
+
+  &[data-state='closed'] {
+    animation: fadeOut var(--duration-overlay-exit) var(--easing-overlay-exit);
+  }
+}
+
+.panel {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: calc(
+    var(--z-overlay-base) + (var(--overlay-depth) * var(--z-overlay-interval)) +
+      1
+  );
+  display: grid;
+  width: 100%;
+  max-height: min(88dvh, 48rem);
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large) var(--radius-large) 0 0;
+  padding: 1.25rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom));
+  color: var(--color-text);
+  background: var(--color-solid-fallback);
+  box-shadow: var(--shadow-overlay);
+
+  @supports (
+    (backdrop-filter: blur(1rem)) or (-webkit-backdrop-filter: blur(1rem))
+  ) {
+    background: var(--color-glass);
+    -webkit-backdrop-filter: blur(1.5rem) saturate(125%);
+    backdrop-filter: blur(1.5rem) saturate(125%);
+  }
+
+  &[data-state='open'] {
+    animation: sheetIn var(--duration-overlay-enter) var(--easing-overlay-enter);
+  }
+
+  &[data-state='closed'] {
+    animation: sheetOut var(--duration-overlay-exit) var(--easing-overlay-exit);
+  }
+}
+
+.closeButton {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  min-width: 2.75rem;
+  padding: 0.6rem;
+}
+
+.header {
+  display: grid;
+  gap: 0.5rem;
+  padding-right: 3rem;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.7rem);
+  line-height: 1.15;
+}
+
+.description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.body {
+  min-width: 0;
+  padding-top: 1.25rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  padding-top: 1.25rem;
+}
+
+@media (min-width: 40rem) {
+  .panel {
+    top: 50%;
+    right: auto;
+    bottom: auto;
+    left: 50%;
+    width: min(calc(100% - 3rem), 36rem);
+    max-height: min(85dvh, 48rem);
+    border-radius: var(--radius-large);
+    padding: 1.6rem;
+    transform: translate(-50%, -50%);
+
+    &[data-state='open'] {
+      animation: modalIn var(--duration-overlay-enter)
+        var(--easing-overlay-enter);
+    }
+
+    &[data-state='closed'] {
+      animation: modalOut var(--duration-overlay-exit)
+        var(--easing-overlay-exit);
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+}
+
+@keyframes sheetOut {
+  to {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 1rem)) scale(0.98);
+  }
+}
+
+@keyframes modalOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 0.5rem)) scale(0.99);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .panel {
+    animation-duration: 1ms;
+  }
+}

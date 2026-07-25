@@ -91,6 +91,48 @@ describe('JsonTransactionRepository', () => {
     });
   });
 
+  it('applies inclusive-from and exclusive-to filtering before count and pagination', async () => {
+    const { database, repository } = await setup();
+    for (const [id, status, transactionDate] of [
+      ['before', 'posted', '2026-03-31T23:59:59.999Z'],
+      ['at-from', 'posted', '2026-04-01T00:00:00.000Z'],
+      ['inside', 'reversed', '2026-05-01T00:00:00.000Z'],
+      ['at-to', 'posted', '2026-06-01T00:00:00.000Z'],
+    ] as const) {
+      await database.insert('transactions', {
+        id,
+        accountId: 'range-account',
+        merchantName: 'Range Merchant',
+        amount: { minorUnits: 100, currency: 'CAD' },
+        transactionDate,
+        createdAt: transactionDate,
+        updatedAt: transactionDate,
+        ...(status === 'reversed'
+          ? { status, reversedAt: transactionDate }
+          : { status, reversedAt: null }),
+      });
+    }
+
+    const allStatuses = await repository.listByAccount({
+      accountId: 'range-account',
+      pageSize: 1,
+      from: new Date('2026-04-01T00:00:00.000Z'),
+      to: new Date('2026-06-01T00:00:00.000Z'),
+    });
+    const posted = await repository.listByAccount({
+      accountId: 'range-account',
+      status: 'posted',
+      pageSize: 20,
+      from: new Date('2026-04-01T00:00:00.000Z'),
+      to: new Date('2026-06-01T00:00:00.000Z'),
+    });
+
+    expect(allStatuses.totalCount).toBe(2);
+    expect(allStatuses.transactions).toHaveLength(1);
+    expect(posted.totalCount).toBe(1);
+    expect(posted.transactions.map(({ id }) => id)).toEqual(['at-from']);
+  });
+
   it('uses ID descending as the tie-breaker for identical transaction dates', async () => {
     const { database, repository } = await setup();
     const timestamp = '2028-01-01T00:00:00.000Z';

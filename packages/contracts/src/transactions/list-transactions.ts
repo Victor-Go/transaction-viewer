@@ -27,6 +27,12 @@ const pageSizeQuerySchema = z
   .pipe(z.number().int().min(1).max(100))
   .default(20);
 
+const utcInstantQuerySchema = z.iso
+  .datetime({ offset: false })
+  .refine((value) => value.endsWith('Z'), {
+    message: 'Timestamp must be a UTC instant',
+  });
+
 export const listTransactionsPathParamsSchema = z
   .object({
     accountId: accountIdSchema,
@@ -38,8 +44,29 @@ export const listTransactionsQuerySchema = z
     status: transactionStatusSchema.optional(),
     pageSize: pageSizeQuerySchema,
     pageToken: opaquePageTokenSchema.optional(),
+    from: utcInstantQuerySchema.optional(),
+    to: utcInstantQuerySchema.optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    ({ from, to }) =>
+      (from === undefined && to === undefined) ||
+      (from !== undefined && to !== undefined),
+    {
+      message: 'from and to must be supplied together',
+      path: ['from'],
+    },
+  )
+  .refine(
+    ({ from, to }) =>
+      from === undefined ||
+      to === undefined ||
+      Date.parse(from) < Date.parse(to),
+    {
+      message: 'from must be earlier than to',
+      path: ['to'],
+    },
+  );
 
 export const listTransactionsResponseSchema = z
   .object({

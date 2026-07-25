@@ -1,0 +1,28 @@
+:root {
+  color-scheme: light dark;
+
+  --z-page: 0;
+  --z-focused-control: 1;
+  --z-sticky: 20;
+  --z-popover: 40;
+  --z-overlay-base: 100;
+  --z-overlay-interval: 4;
+  --z-toast: 200;
+
+  --duration-overlay-enter: 240ms;
+  --duration-overlay-exit: 170ms;
+  --easing-overlay-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-overlay-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --radius-small: 0.75rem;
+  --radius-medium: 1.25rem;
+  --radius-large: 1.75rem;
+  --content-width: 72rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-overlay-enter: 1ms;
+    --duration-overlay-exit: 1ms;
+  }
+}

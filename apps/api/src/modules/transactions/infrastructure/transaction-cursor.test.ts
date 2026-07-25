@@ -8,13 +8,18 @@ import {
 
 describe('TransactionCursorCodec', () => {
   const codec = new TransactionCursorCodec();
-  const scope = { accountId: 'acc_demo', status: 'posted' as const };
+  const scope = {
+    accountId: 'acc_demo',
+    status: 'posted' as const,
+    from: new Date('2026-04-01T00:00:00.000Z'),
+    to: new Date('2026-07-25T00:00:00.000Z'),
+  };
   const boundary = {
     transactionDate: new Date('2026-07-20T18:30:00.000Z'),
     id: 'txn-020',
   };
 
-  it('round-trips a versioned, account-and-status-scoped cursor', () => {
+  it('round-trips a versioned account, status, and date-range scoped cursor', () => {
     const token = codec.encode({ ...scope, ...boundary });
 
     expect(token.length).toBeLessThanOrEqual(2048);
@@ -84,10 +89,28 @@ describe('TransactionCursorCodec', () => {
     const token = codec.encode({ ...scope, ...boundary });
 
     expect(() =>
-      codec.decode(token, { accountId: 'another', status: 'posted' }),
+      codec.decode(token, {
+        ...scope,
+        accountId: 'another',
+      }),
     ).toThrow(InvalidPageTokenError);
     expect(() =>
-      codec.decode(token, { accountId: 'acc_demo', status: 'pending' }),
+      codec.decode(token, {
+        ...scope,
+        status: 'pending',
+      }),
+    ).toThrow(InvalidPageTokenError);
+    expect(() =>
+      codec.decode(token, {
+        ...scope,
+        from: new Date('2026-04-02T00:00:00.000Z'),
+      }),
+    ).toThrow(InvalidPageTokenError);
+    expect(() =>
+      codec.decode(token, {
+        ...scope,
+        to: new Date('2026-07-26T00:00:00.000Z'),
+      }),
     ).toThrow(InvalidPageTokenError);
   });
 

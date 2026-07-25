@@ -10,6 +10,8 @@ export interface ListTransactionsInput {
   readonly status?: TransactionStatus;
   readonly pageSize: number;
   readonly pageToken?: string;
+  readonly from?: Date;
+  readonly to?: Date;
 }
 
 export class ListTransactions {
@@ -21,6 +23,8 @@ export class ListTransactions {
       pageSize: input.pageSize,
       ...(input.status === undefined ? {} : { status: input.status }),
       ...(input.pageToken === undefined ? {} : { pageToken: input.pageToken }),
+      ...(input.from === undefined ? {} : { from: input.from }),
+      ...(input.to === undefined ? {} : { to: input.to }),
     };
 
     return this.transactionRepository.listByAccount(criteria);

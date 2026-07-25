@@ -1,0 +1,51 @@
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.label {
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 720;
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: 0.84rem;
+}
+
+.input {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  padding: 0.7rem 0.85rem;
+  color: var(--color-text);
+  background: var(--color-elevated);
+
+  &[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
+}
+
+.currency {
+  position: relative;
+
+  &::before {
+    position: absolute;
+    top: 50%;
+    left: 0.85rem;
+    color: var(--color-text-muted);
+    content: '$';
+    transform: translateY(-50%);
+  }
+
+  .input {
+    padding-left: 1.8rem;
+  }
+}

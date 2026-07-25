@@ -32,6 +32,75 @@ move components to `shared/ui` only after genuine reuse exists.
 The Web application may depend on `@card-platform/contracts`. It must not import
 backend domain, application, infrastructure, or HTTP implementation modules.
 
+Use this dependency direction:
+
+```text
+pages -> feature UI/model -> feature API -> shared/api -> native Fetch
+```
+
+`@card-platform/contracts` is the DTO, request, response, runtime-schema, and
+public-error source of truth. Do not duplicate server DTOs, add a server-state
+global store, or log account IDs, transaction IDs, merchant data, amounts,
+payloads, cursors, or Idempotency-Key values.
+
+## Transactions and overlays
+
+- Every customer-visible string must use the localization resources. Supported
+  UI languages are English and French; transport enum values remain unchanged,
+  and display formatting uses `en-CA` and `fr-CA`.
+- Use the shared `Input`, `CurrencyInput`, and Radix-based `Select` controls.
+  Do not introduce feature-local alternatives.
+- Represent money as integer minor units. Parse decimal input as text without
+  floating-point arithmetic.
+- Generate write Idempotency-Key values in the frontend, retain them in memory
+  only, and reuse them only when the outcome is uncertain.
+- Keep Transaction Detail route-driven. Create and Reverse are programmatic
+  overlays and must not add routes.
+- Keep exactly one React root, one `OverlayProvider`, and one logical overlay
+  stack. Do not add global Modal singletons, event buses, or duplicate provider
+  trees.
+- Programmatic overlays opened by another overlay must declare their owner.
+  Removing a parent removes every descendant. Closing remains mounted through
+  the Radix closed-state animation and removes on the animation event.
+- Use only Radix Dialog and AlertDialog primitives for modal semantics, focus,
+  Escape behavior, and screen-reader wiring. Do not implement a focus trap.
+- Mobile Bottom Sheet and centered Modal are CSS presentations of the same DOM.
+  Do not branch on user agents, viewport JavaScript, or gesture dismissal.
+- Transaction History is date-unbounded by default. Search by Date keeps an
+  empty or applied draft inside the overlay and must not request data from
+  calendar `onChange`; only explicit Search writes `fromDate`/`toDate`.
+- Never mutate third-party component state. One pure reducer owns every pointer
+  and keyboard range transition; a complete range restarts on the next valid
+  date. Start and End are read-only summaries, and an incomplete range disables
+  Search without showing an error.
+- Selected range and displayed month are independent. Date selection never
+  changes the displayed month; only the month/year step controls may do so.
+- Status and applied date range are independent URL-backed query dimensions.
+  Changing or clearing either resets pages and cursors, and client mutation
+  reconciliation must evaluate the complete active query.
+- Shared UI must not import feature modules. Calendar months render six real
+  weeks; valid adjacent-month dates stay visible, keyboard reachable, and
+  selectable without changing the displayed month. Remove direct dependencies
+  when their last repository import is removed.
+- Status controls and date-search controls require separate accessible
+  semantics. Every visible string and accessible name requires matching
+  English and French resources.
+
+## Styling
+
+- Plain global CSS owns the Tailwind entry, reset, semantic tokens, system
+  light/dark themes, z-index scale, and motion timing.
+- Tailwind owns layout, spacing, sizing, alignment, simple typography, and
+  visibility. SCSS Modules own complex local states, glass surfaces,
+  pseudo-elements, Radix animations, and the responsive overlay morph.
+- CSS Modules use component-local concise semantic names (`root`, `header`,
+  `body`, `actions`). Use modifiers or full BEM only when structural complexity
+  requires them.
+- Consume centralized color, z-index, and motion variables. Do not add numeric
+  z-index values, inline colors, duplicated palettes, or JavaScript animation
+  timeouts.
+- Themes follow `prefers-color-scheme`; do not add a manual theme store.
+
 ## Responsive and accessible UI
 
 Every user-facing feature must be designed and reviewed for both narrow and wide viewports.
@@ -67,6 +136,8 @@ Before declaring a user-facing feature complete:
 - Avoid assertions about private hook state, implementation-only call counts,
   helper internals, or exact CSS class names.
 - Keep unhandled MSW requests failing unless a test deliberately permits one.
+- Add the focused failing test before changing observable behavior, confirm the
+  intended failure, and rerun it after the minimum implementation.
 
 Use Playwright only for critical complete journeys; keep protocol and UI
 branches at the lower effective test layer. Run focused Web tests during

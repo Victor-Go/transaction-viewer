@@ -1,0 +1,71 @@
+:root {
+  --color-page: #f3f6f4;
+  --color-page-accent: rgba(113, 220, 168, 0.25);
+  --color-page-accent-secondary: rgba(119, 139, 255, 0.18);
+  --color-surface: #ffffff;
+  --color-glass: rgba(255, 255, 255, 0.72);
+  --color-solid-fallback: rgba(255, 255, 255, 0.96);
+  --color-elevated: #f8faf9;
+  --color-text: #10231b;
+  --color-text-secondary: #3f514a;
+  --color-text-muted: #66756f;
+  --color-border: rgba(16, 35, 27, 0.13);
+  --color-focus: #1d6f50;
+  --color-primary: #153f30;
+  --color-primary-hover: #0d2f23;
+  --color-primary-text: #ffffff;
+  --color-secondary: #e8eeeb;
+  --color-danger: #b4232d;
+  --color-danger-hover: #8f1720;
+  --color-success: #187548;
+  --color-success-soft: #e1f4e9;
+  --color-pending: #8a5b00;
+  --color-pending-soft: #fff2c7;
+  --color-reversed: #6a527d;
+  --color-reversed-soft: #f0e8f6;
+  --color-info: #245c88;
+  --color-info-soft: #e4f1fb;
+  --color-warning: #7a4d00;
+  --color-warning-soft: #fff0c2;
+  --color-error-soft: #fde8e9;
+  --color-overlay-backdrop: rgba(5, 18, 13, 0.58);
+  --shadow-surface: 0 24px 70px rgba(18, 42, 32, 0.13);
+  --shadow-overlay: 0 30px 100px rgba(4, 16, 11, 0.32);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-page: #08110e;
+    --color-page-accent: rgba(48, 161, 108, 0.2);
+    --color-page-accent-secondary: rgba(100, 118, 232, 0.14);
+    --color-surface: #111c18;
+    --color-glass: rgba(17, 28, 24, 0.76);
+    --color-solid-fallback: rgba(17, 28, 24, 0.97);
+    --color-elevated: #17251f;
+    --color-text: #eef7f2;
+    --color-text-secondary: #bdcbc4;
+    --color-text-muted: #92a29a;
+    --color-border: rgba(224, 241, 232, 0.15);
+    --color-focus: #82e6b5;
+    --color-primary: #abf2ce;
+    --color-primary-hover: #c8f8df;
+    --color-primary-text: #092016;
+    --color-secondary: #24342d;
+    --color-danger: #ff7b83;
+    --color-danger-hover: #ff9ca2;
+    --color-success: #82e1ad;
+    --color-success-soft: #173a29;
+    --color-pending: #f3c767;
+    --color-pending-soft: #3a2e15;
+    --color-reversed: #d1aee7;
+    --color-reversed-soft: #30233a;
+    --color-info: #8ac6f2;
+    --color-info-soft: #163247;
+    --color-warning: #f2c466;
+    --color-warning-soft: #3a2c12;
+    --color-error-soft: #431f23;
+    --color-overlay-backdrop: rgba(0, 6, 4, 0.74);
+    --shadow-surface: 0 24px 80px rgba(0, 0, 0, 0.32);
+    --shadow-overlay: 0 34px 110px rgba(0, 0, 0, 0.58);
+  }
+}

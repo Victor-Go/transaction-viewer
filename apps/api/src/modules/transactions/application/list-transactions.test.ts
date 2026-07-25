@@ -99,6 +99,8 @@ describe('ListTransactions', () => {
       status: 'reversed',
       pageSize: 75,
       pageToken: 'opaque-cursor',
+      from: new Date('2026-04-01T00:00:00.000Z'),
+      to: new Date('2026-07-25T00:00:00.000Z'),
     });
 
     expect(repository.receivedCriteria).toEqual({
@@ -106,6 +108,8 @@ describe('ListTransactions', () => {
       status: 'reversed',
       pageSize: 75,
       pageToken: 'opaque-cursor',
+      from: new Date('2026-04-01T00:00:00.000Z'),
+      to: new Date('2026-07-25T00:00:00.000Z'),
     });
   });
 

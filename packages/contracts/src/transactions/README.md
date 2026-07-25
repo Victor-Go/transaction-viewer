@@ -9,7 +9,10 @@
   must equal `data.length`. It is not the total number of matching
   transactions.
 - `totalCount` is the exact number of transactions matching the account and
-  optional status before applying the cursor and page size.
+  optional status/date range before applying the cursor and page size.
+- `from` and `to` are optional only as a pair. They must be UTC ISO date-time
+  strings and `from` must precede `to`. The server interprets the interval as
+  inclusive `from` and exclusive `to`.
 - `pageToken` and `nextPageToken` are opaque cursors. Clients may store and send
   them but must not depend on their contents or internal format. Tokens are
   limited to 2048 characters and are not silently normalized.

@@ -55,6 +55,10 @@ Generic Fetch transport belongs in `apps/web/src/shared/api`. Reusable UI may
 move to `shared/ui` after genuine reuse exists; do not build a speculative
 design system.
 
+The Transaction frontend's routing, overlay stack, styling boundaries,
+idempotency lifecycle, reconciliation, and polling design are documented in
+[`frontend-transactions.md`](./frontend-transactions.md).
+
 ## Contracts and Internal Models
 
 `packages/contracts` is the single shared definition of the external HTTP

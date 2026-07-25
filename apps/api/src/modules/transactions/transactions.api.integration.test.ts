@@ -168,6 +168,71 @@ describe('transaction listing vertical slice', () => {
     });
   });
 
+  it('filters by inclusive from, exclusive to, status, and counts before paging', async () => {
+    for (const [id, status, transactionDate] of [
+      ['range-before', 'posted', '2026-03-31T23:59:59.999Z'],
+      ['range-from', 'posted', '2026-04-01T00:00:00.000Z'],
+      ['range-middle', 'reversed', '2026-05-01T00:00:00.000Z'],
+      ['range-to', 'posted', '2026-06-01T00:00:00.000Z'],
+    ] as const) {
+      await database.insert('transactions', {
+        id,
+        accountId: 'range-account',
+        merchantName: 'Range Merchant',
+        amount: { minorUnits: 100, currency: 'CAD' },
+        transactionDate,
+        createdAt: transactionDate,
+        updatedAt: transactionDate,
+        ...(status === 'reversed'
+          ? { status, reversedAt: transactionDate }
+          : { status, reversedAt: null }),
+      });
+    }
+
+    const range =
+      'from=2026-04-01T00%3A00%3A00.000Z&to=2026-06-01T00%3A00%3A00.000Z';
+    const page = await getPage(
+      `/api/v1/accounts/range-account/transactions?${range}&pageSize=1`,
+    );
+    const posted = await getPage(
+      `/api/v1/accounts/range-account/transactions?${range}&status=posted`,
+    );
+
+    expect(page.meta).toMatchObject({
+      pageSize: 1,
+      returnedCount: 1,
+      totalCount: 2,
+      hasMore: true,
+    });
+    expect(posted.meta.totalCount).toBe(1);
+    expect(posted.data.map(({ id }) => id)).toEqual(['range-from']);
+  });
+
+  it('scopes continuation cursors to both date boundaries', async () => {
+    const original =
+      'from=2026-01-01T00%3A00%3A00.000Z&to=2027-01-01T00%3A00%3A00.000Z';
+    const first = await getPage(
+      `/api/v1/accounts/acc_demo/transactions?${original}&pageSize=5`,
+    );
+    expect(first.meta.nextPageToken).not.toBeNull();
+
+    for (const changedRange of [
+      'from=2026-01-02T00%3A00%3A00.000Z&to=2027-01-01T00%3A00%3A00.000Z',
+      'from=2026-01-01T00%3A00%3A00.000Z&to=2027-01-02T00%3A00%3A00.000Z',
+    ]) {
+      const response = await request(app).get(
+        `/api/v1/accounts/acc_demo/transactions?${changedRange}&pageSize=5&pageToken=${first.meta.nextPageToken}`,
+      );
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe(API_ERROR_CODES.INVALID_REQUEST);
+    }
+
+    const second = await getPage(
+      `/api/v1/accounts/acc_demo/transactions?${original}&pageSize=5&pageToken=${first.meta.nextPageToken}`,
+    );
+    expect(second.data).toHaveLength(5);
+  });
+
   it('serves a persisted transaction at the maximum supported account ID length', async () => {
     const accountId = 'a'.repeat(128);
     await database.insert('transactions', {

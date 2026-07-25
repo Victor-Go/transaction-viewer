@@ -17,6 +17,8 @@ const cursorSchema = z
     v: z.literal(1),
     accountId: z.string().refine(isValidAccountId),
     status: z.enum(['pending', 'posted', 'reversed']).nullable(),
+    from: z.iso.datetime().nullable(),
+    to: z.iso.datetime().nullable(),
     transactionDate: z.iso.datetime(),
     id: z.string().refine(isValidTransactionId),
   })
@@ -25,6 +27,8 @@ const cursorSchema = z
 interface CursorScope {
   readonly accountId: string;
   readonly status?: TransactionStatus;
+  readonly from?: Date;
+  readonly to?: Date;
 }
 
 interface CursorBoundary {
@@ -34,10 +38,18 @@ interface CursorBoundary {
 
 export class TransactionCursorCodec {
   encode(scope: CursorScope & CursorBoundary): string {
+    const hasValidDateRange =
+      (scope.from === undefined && scope.to === undefined) ||
+      (scope.from !== undefined &&
+        scope.to !== undefined &&
+        !Number.isNaN(scope.from.valueOf()) &&
+        !Number.isNaN(scope.to.valueOf()) &&
+        scope.from < scope.to);
     if (
       !isValidAccountId(scope.accountId) ||
       !isValidTransactionId(scope.id) ||
-      Number.isNaN(scope.transactionDate.valueOf())
+      Number.isNaN(scope.transactionDate.valueOf()) ||
+      !hasValidDateRange
     ) {
       throw new InvalidGeneratedPageTokenError();
     }
@@ -46,6 +58,8 @@ export class TransactionCursorCodec {
         v: 1,
         accountId: scope.accountId,
         status: scope.status ?? null,
+        from: scope.from?.toISOString() ?? null,
+        to: scope.to?.toISOString() ?? null,
         transactionDate: scope.transactionDate.toISOString(),
         id: scope.id,
       }),
@@ -62,7 +76,13 @@ export class TransactionCursorCodec {
         token.length < 1 ||
         token.length > PAGE_TOKEN_MAX_LENGTH ||
         !/^[A-Za-z0-9_-]+$/.test(token) ||
-        !isValidAccountId(scope.accountId)
+        !isValidAccountId(scope.accountId) ||
+        (scope.from === undefined) !== (scope.to === undefined) ||
+        (scope.from !== undefined &&
+          scope.to !== undefined &&
+          (Number.isNaN(scope.from.valueOf()) ||
+            Number.isNaN(scope.to.valueOf()) ||
+            scope.from >= scope.to))
       ) {
         throw new InvalidPageTokenError();
       }
@@ -70,7 +90,9 @@ export class TransactionCursorCodec {
       const payload = cursorSchema.parse(JSON.parse(decoded));
       if (
         payload.accountId !== scope.accountId ||
-        payload.status !== (scope.status ?? null)
+        payload.status !== (scope.status ?? null) ||
+        payload.from !== (scope.from?.toISOString() ?? null) ||
+        payload.to !== (scope.to?.toISOString() ?? null)
       ) {
         throw new Error('scope mismatch');
       }

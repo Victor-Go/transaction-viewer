@@ -8,6 +8,8 @@ export interface ListTransactionsCriteria {
   readonly status?: TransactionStatus;
   readonly pageSize: number;
   readonly pageToken?: string;
+  readonly from?: Date;
+  readonly to?: Date;
 }
 
 export interface ListTransactionsPageWithMore {

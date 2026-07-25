@@ -103,6 +103,8 @@ export const createListTransactionsHandler = (
         ...(query.pageToken === undefined
           ? {}
           : { pageToken: query.pageToken }),
+        ...(query.from === undefined ? {} : { from: new Date(query.from) }),
+        ...(query.to === undefined ? {} : { to: new Date(query.to) }),
       });
       const now = clock.now();
       response.json(

@@ -8,15 +8,20 @@ GetTransaction  -> TransactionRepository -> JsonTransactionRepository -> JsonFil
 ```
 
 The JSON adapter reads the latest committed collection on every request, then
-performs transaction-specific account/status filtering, exact counting,
+performs transaction-specific account/status/date filtering, exact counting,
 ordering, and keyset pagination in memory. `JsonFileDatabase` deliberately has
 no transaction, sorting, counting, or pagination knowledge. A future relational
 adapter must preserve the same public semantics with indexed queries.
 
 Ordering is fixed to `transactionDate` descending and then `id` descending.
 Both cursor keys are immutable. Cursors are opaque, versioned base64url values
-scoped to account ID and normalized status scope. They are validation and
-continuation tokens, not an authorization boundary.
+scoped to account ID, normalized status scope, and normalized UTC `from`/`to`
+scope. They are validation and continuation tokens, not an authorization
+boundary.
+
+List date filtering requires both UTC instants or neither. It includes
+`transactionDate >= from` and excludes `transactionDate >= to`. Counting occurs
+after the account, status, and date predicates and before cursor/page slicing.
 
 Pages do not share snapshot isolation. Each page observes the latest committed
 file, so `totalCount` can change between requests. Keyset pagination prevents
