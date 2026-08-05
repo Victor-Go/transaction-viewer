@@ -7,6 +7,13 @@ import { ResponsiveOverlay } from './ResponsiveOverlay';
 
 const layer = { depth: 0, isTopmost: true };
 
+const getBackdrop = (selector: string): HTMLElement => {
+  const element = document.querySelector<HTMLElement>(selector);
+  if (element === null)
+    throw new Error(`Backdrop ${selector} was not rendered`);
+  return element;
+};
+
 const LifecycleHarness = ({ onExited }: { readonly onExited: () => void }) => {
   const [open, setOpen] = useState(true);
   return (
@@ -47,21 +54,24 @@ describe('ResponsiveOverlay', () => {
         });
       });
 
-    render(<LifecycleHarness onExited={onExited} />);
-    await fireEvent.click(
-      screen.getByRole('button', { name: 'Close lifecycle test' }),
-    );
+    try {
+      render(<LifecycleHarness onExited={onExited} />);
+      await fireEvent.click(
+        screen.getByRole('button', { name: 'Close lifecycle test' }),
+      );
 
-    const closedDialog = screen.getByRole('dialog', {
-      name: 'Lifecycle test',
-      hidden: true,
-    });
-    expect(closedDialog).toHaveAttribute('data-state', 'closed');
-    expect(onExited).not.toHaveBeenCalled();
+      const closedDialog = screen.getByRole('dialog', {
+        name: 'Lifecycle test',
+        hidden: true,
+      });
+      expect(closedDialog).toHaveAttribute('data-state', 'closed');
+      expect(onExited).not.toHaveBeenCalled();
 
-    fireEvent.animationEnd(closedDialog);
-    expect(onExited).toHaveBeenCalledTimes(1);
-    styleSpy.mockRestore();
+      fireEvent.animationEnd(closedDialog);
+      expect(onExited).toHaveBeenCalledTimes(1);
+    } finally {
+      styleSpy.mockRestore();
+    }
   });
 
   it('leaves alert-dialog backdrop dismissal to Radix', () => {
@@ -78,11 +88,8 @@ describe('ResponsiveOverlay', () => {
       </ResponsiveOverlay>,
     );
 
-    const backdrop = document.querySelector<HTMLElement>(
-      '#overlay-root > [data-state="open"]',
-    );
-    expect(backdrop).not.toBeNull();
-    fireEvent.pointerDown(backdrop!);
+    const backdrop = getBackdrop('#overlay-root > [data-state="open"]');
+    fireEvent.pointerDown(backdrop);
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -100,11 +107,10 @@ describe('ResponsiveOverlay', () => {
       </ResponsiveOverlay>,
     );
 
-    const backdrop = document.querySelector<HTMLElement>(
+    const backdrop = getBackdrop(
       '#overlay-root > [data-state="open"]:not([role])',
     );
-    expect(backdrop).not.toBeNull();
-    await userEvent.click(backdrop!);
+    await userEvent.click(backdrop);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -140,11 +146,11 @@ describe('ResponsiveOverlay', () => {
         <h2 id="locked-title">Locked test</h2>
       </ResponsiveOverlay>,
     );
-    const backdrop = document.querySelector<HTMLElement>(
+    const backdrop = getBackdrop(
       '#overlay-root > [data-state="open"]:not([role])',
     );
 
-    fireEvent.pointerDown(backdrop!);
+    fireEvent.pointerDown(backdrop);
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 
     expect(onClose).not.toHaveBeenCalled();

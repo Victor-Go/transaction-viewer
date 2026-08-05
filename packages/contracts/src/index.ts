@@ -7,6 +7,7 @@ export {
 } from './common/api-error.ts';
 export { healthResponseSchema, type HealthResponse } from './common/health.ts';
 export {
+  CREATE_TRANSACTION_MAX_MINOR_UNITS,
   createTransactionRequestSchema,
   createTransactionResponseSchema,
   MERCHANT_NAME_MAX_LENGTH,

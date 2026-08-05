@@ -29,20 +29,23 @@ describe('TransactionCursorCodec', () => {
   it('guards token length and encoding before attempting base64url decoding', () => {
     const bufferFrom = vi.spyOn(Buffer, 'from');
 
-    expect(() => codec.decode('', scope)).toThrow(InvalidPageTokenError);
-    expect(() => codec.decode('a'.repeat(2049), scope)).toThrow(
-      InvalidPageTokenError,
-    );
-    expect(() => codec.decode('invalid+base64url', scope)).toThrow(
-      InvalidPageTokenError,
-    );
-    expect(bufferFrom).not.toHaveBeenCalled();
+    try {
+      expect(() => codec.decode('', scope)).toThrow(InvalidPageTokenError);
+      expect(() => codec.decode('a'.repeat(2049), scope)).toThrow(
+        InvalidPageTokenError,
+      );
+      expect(() => codec.decode('invalid+base64url', scope)).toThrow(
+        InvalidPageTokenError,
+      );
+      expect(bufferFrom).not.toHaveBeenCalled();
 
-    expect(() => codec.decode('a'.repeat(2048), scope)).toThrow(
-      InvalidPageTokenError,
-    );
-    expect(bufferFrom).toHaveBeenCalledOnce();
-    bufferFrom.mockRestore();
+      expect(() => codec.decode('a'.repeat(2048), scope)).toThrow(
+        InvalidPageTokenError,
+      );
+      expect(bufferFrom).toHaveBeenCalledOnce();
+    } finally {
+      bufferFrom.mockRestore();
+    }
   });
 
   it('supports the absence of a status scope and different IDs at one timestamp', () => {

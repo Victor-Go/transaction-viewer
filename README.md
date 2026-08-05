@@ -29,7 +29,8 @@ pnpm build
 pnpm verify
 ```
 
-`pnpm verify` checks formatting, linting, types, unit/integration tests, and builds. Playwright tests remain separate under `tests/e2e`.
+`pnpm verify` checks formatting, linting, types, unit/integration tests, builds,
+and the Playwright journeys under `tests/e2e`.
 
 ## Local development
 
@@ -84,11 +85,12 @@ applied ranges, dates, and accessible names are presented in English or French
 using `en-CA` or `fr-CA`.
 
 Create Transaction is a programmatic overlay rather than a route. It accepts a
-merchant and an exactly parsed CAD amount, sends only the strict shared request
-contract, generates an in-memory frontend `Idempotency-Key`, and reuses that
-key when a network or server outcome is uncertain. Success reconciles the new
-Pending purchase into History and navigates to its Detail route. Response
-`Location` values never cause external navigation.
+merchant and an exactly parsed CAD amount from `$0.01` through
+`$999,999,999.99`, sends only the strict shared request contract, generates an
+in-memory frontend `Idempotency-Key`, and reuses that key when a network or
+server outcome is uncertain. Success reconciles the new Pending purchase into
+History and navigates to its Detail route. Response `Location` values never
+cause external navigation.
 
 Detail uses the account-scoped single-resource endpoint. Dates, timestamps,
 and the reversal deadline display in the user's local timezone. An eligible
@@ -175,6 +177,9 @@ Every returned transaction also contains:
 
 `POST /api/v1/accounts/:accountId/transactions` simulates a CAD purchase. It
 requires a unique `Idempotency-Key` header and a strict request body:
+
+The amount is represented as integer minor units and must be between `1` and
+`99999999999` inclusive (`$0.01` through `$999,999,999.99`).
 
 ```json
 {

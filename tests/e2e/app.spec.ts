@@ -2,6 +2,12 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 
 type Status = 'pending' | 'posted' | 'reversed';
 
+const TEST_NOW = new Date('2026-07-27T12:00:00-07:00');
+
+test.beforeEach(async ({ page }) => {
+  await page.clock.install({ time: TEST_NOW });
+});
+
 const transaction = (id: string, status: Status) => ({
   id,
   accountId: 'acc_demo',
@@ -34,6 +40,7 @@ const json = (route: Route, body: unknown, status = 200) =>
 const installTransactionApi = async (page: Page) => {
   let createdStatus: Status = 'pending';
   let createdReads = 0;
+  let createRequests = 0;
   const listRequests: URL[] = [];
 
   await page.route('**/api/v1/**', async (route) => {
@@ -45,6 +52,7 @@ const installTransactionApi = async (page: Page) => {
       request.method() === 'POST' &&
       path === '/api/v1/accounts/acc_demo/transactions'
     ) {
+      createRequests += 1;
       return json(route, { data: transaction('txn-created', 'pending') }, 201);
     }
 
@@ -123,13 +131,12 @@ const installTransactionApi = async (page: Page) => {
     );
   });
 
-  return { listRequests };
+  return { getCreateRequestCount: () => createRequests, listRequests };
 };
 
 test('desktop purchase lifecycle: filter, paginate, create, post, and reverse', async ({
   page,
 }) => {
-  await page.clock.install();
   await installTransactionApi(page);
   await page.goto('/');
 
@@ -177,6 +184,29 @@ test('desktop purchase lifecycle: filter, paginate, create, post, and reverse', 
   await expect(
     page.getByRole('dialog', { name: 'Transaction details' }),
   ).toContainText('Reversed');
+});
+
+test('Create transaction rejects an amount above the maximum before submitting', async ({
+  page,
+}) => {
+  const { getCreateRequestCount } = await installTransactionApi(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create transaction' }).click();
+  await page
+    .getByRole('textbox', { name: 'Merchant name' })
+    .fill('Harbour Market');
+  const amount = page.getByRole('textbox', { name: 'Amount (CAD)' });
+  await amount.fill('1000000000.00');
+
+  await expect(amount).toHaveValue('');
+  await page.getByRole('button', { name: 'Create purchase' }).click();
+  await expect(
+    page.getByText('Enter a CAD amount from $0.01 to $999,999,999.99.'),
+  ).toBeVisible();
+  expect(getCreateRequestCount()).toBe(0);
+  await expect(
+    page.getByRole('dialog', { name: 'Create transaction' }),
+  ).toBeVisible();
 });
 
 test('mobile Bottom Sheet closes from backdrop and nests confirmation', async ({
@@ -295,7 +325,7 @@ test('desktop Search by Date applies, paginates, edits, and clears explicitly', 
   expect(api.listRequests).toHaveLength(initialRequestCount + 1);
   await expect(
     page.getByRole('button', {
-      name: 'Edit date search: Jul 20–21',
+      name: 'Edit date search: Jul 20 – 21',
     }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Load more' }).click();
@@ -305,7 +335,7 @@ test('desktop Search by Date applies, paginates, edits, and clears explicitly', 
   );
 
   await page
-    .getByRole('button', { name: 'Edit date search: Jul 20–21' })
+    .getByRole('button', { name: 'Edit date search: Jul 20 – 21' })
     .click();
   await expect(page.locator('[data-date="2026-07-20"]')).toHaveAttribute(
     'data-selection-start',
@@ -322,7 +352,7 @@ test('desktop Search by Date applies, paginates, edits, and clears explicitly', 
   ).toBeEnabled();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await page
-    .getByRole('button', { name: 'Clear date search: Jul 20–21' })
+    .getByRole('button', { name: 'Clear date search: Jul 20 – 21' })
     .click();
   await expect(page).not.toHaveURL(/fromDate/);
   await expect(page).not.toHaveURL(/toDate/);
@@ -371,11 +401,11 @@ test('mobile Search by Date uses six stable weeks and selectable adjacent dates'
   await expect(page).toHaveURL(/fromDate=2026-06-30/);
   await expect(
     page.getByRole('button', {
-      name: 'Edit date search: Jun 30–Jul 2',
+      name: 'Edit date search: Jun 30 – Jul 2',
     }),
   ).toBeVisible();
   await page
-    .getByRole('button', { name: 'Clear date search: Jun 30–Jul 2' })
+    .getByRole('button', { name: 'Clear date search: Jun 30 – Jul 2' })
     .click();
   await expect(
     page.getByRole('button', { name: 'Search by date' }),
@@ -444,10 +474,10 @@ test('French Search by Date localizes calendar, range, and empty state', async (
 
   await expect(
     page.getByRole('button', {
-      name: 'Modifier la recherche par date : 21 – 22 juill.',
+      name: 'Modifier la recherche par date : 21 – 22 juill.',
     }),
   ).toBeVisible();
   await expect(
-    page.getByText('Aucune transaction trouvée du 21 – 22 juill.'),
+    page.getByText('Aucune transaction trouvée du 21 – 22 juill.'),
   ).toBeVisible();
 });

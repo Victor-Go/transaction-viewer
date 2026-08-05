@@ -1411,3 +1411,77 @@ mutation, pointer-anchor state, forced outside-month values, duplicate
 backdrop close handler, debug logging, focused tests, or skipped tests. The
 only known limitation is the existing client bundle-size warning; direct
 month/year dropdown selection remains intentionally outside the assignment.
+
+## Create Transaction maximum amount
+
+### Prompt and implementation decision
+
+Add a `999999999.99` limit when creating a transaction, add the corresponding
+tests, and fix every red test. Preserve integer minor-unit money handling and
+the existing Contracts-to-API/Web dependency direction.
+
+The limit is represented exactly as `99,999,999,999` minor units and exported
+from Contracts as `CREATE_TRANSACTION_MAX_MINOR_UNITS`. The strict Create
+request schema enforces it at the API boundary, while the Web amount parser
+and `CurrencyInput` use the same constant to reject an oversized value before
+it can remain in the Create Transaction field or send a request. English and
+French validation messages state the complete accepted range.
+
+### Tests and diagnosis
+
+Contract, Supertest, parser, and App/MSW tests cover the accepted maximum, the
+first rejected minor unit, the first rejected whole-dollar input, the localized
+message, and absence of an HTTP request for client-side rejection. CurrencyInput
+component coverage proves that an oversized pasted draft leaves the prior valid
+field value intact. A Playwright journey proves the full Create Transaction
+overlay keeps the oversized paste out of the input, shows the range error, and
+does not issue a create request. The new tests were observed failing before
+implementation and passing afterward.
+
+Three existing date-search App tests also failed on August 5 because their
+blank-search month followed the real clock while their selected dates remained
+hard-coded to July. The test file now mocks `today()` to its established July
+27 scenario, making those tests deterministic without changing production date
+behavior.
+
+## Deterministic test-system hardening
+
+### Prompt and root-cause diagnosis
+
+Audit the complete test system for real-date failures and other latent red-test
+risks, explain why real time entered the tests, and fix every problem found.
+
+The failure was possible because the browser and App suites encoded July 2026
+expectations while production calendar code correctly read the host's local
+date. The tests did not own their clock, the Playwright configuration did not
+own its timezone, and the repository's `verify` command did not run Playwright,
+so the broad green gate could conceal four failing browser journeys after the
+calendar crossed into August.
+
+### Implementation
+
+Playwright now installs one explicit July 27, 2026 Los Angeles time before each
+test, uses the same explicit timezone in its browser context, and always starts
+the configured test servers instead of silently attaching to an unrelated
+server already using port 5173. `pnpm verify` now includes all Playwright
+journeys.
+
+Frontend response-ordering tests use controlled deferred requests instead of
+real sleeps. Dynamic calendar and Overlay element lookup fails with descriptive
+test errors instead of non-null assertions. Temporary spies are restored in
+`finally`. Cross-process persistence tests apply independent message timeouts,
+remove diagnostic listeners, and terminate child processes in `finally`;
+elapsed-time assertions use the monotonic performance clock.
+
+The testing strategy now records deterministic clock, timezone, synchronization,
+and child-process cleanup requirements. ESLint rejects unparameterized dates,
+`Date.now()`, bare Playwright clock installation, and Playwright wall-clock
+sleeps in tests so the same class of defect cannot silently return.
+
+### Verification
+
+The focused Web run passed 50/50 tests and the focused API persistence/process
+run passed 23/23 tests. The first full browser rerun passed 8/8 journeys. Final
+`pnpm verify` passed formatting, ESLint, TypeScript, 157 Contracts tests, 235
+API tests, 156 Web tests, all production builds, and 9/9 Chromium journeys. The
+Web build retains the known non-failing 500 kB chunk-size warning.

@@ -77,8 +77,7 @@ export const resources = {
           'New transactions begin as Pending and normally become Posted in about 5–10 seconds in this demo.',
         merchantRequired: 'Enter a merchant name.',
         merchantLength: 'Enter a merchant name between 1 and 120 characters.',
-        amountInvalid:
-          'Enter a positive CAD amount with up to two decimal places.',
+        amountInvalid: 'Enter a CAD amount from $0.01 to $999,999,999.99.',
         conflict:
           'This purchase conflicts with an earlier request. Review the details and try again.',
         rejected:
@@ -215,8 +214,7 @@ export const resources = {
           'Les nouvelles transactions commencent en attente et sont normalement comptabilisées dans environ 5 à 10 secondes dans cette démo.',
         merchantRequired: 'Saisissez un nom de commerçant.',
         merchantLength: 'Saisissez un nom de commerçant de 1 à 120 caractères.',
-        amountInvalid:
-          'Saisissez un montant CAD positif avec au plus deux décimales.',
+        amountInvalid: 'Saisissez un montant CAD de 0,01 $ à 999 999 999,99 $.',
         conflict:
           'Cet achat entre en conflit avec une demande précédente. Vérifiez les détails et réessayez.',
         rejected:

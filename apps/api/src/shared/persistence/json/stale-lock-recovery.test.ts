@@ -38,15 +38,26 @@ const schema: JsonDatabaseRuntimeSchema<CounterCollections> = {
   parse: parseDocument,
 };
 
+const WORKER_MESSAGE_TIMEOUT_MILLISECONDS = 15_000;
+
 const waitForMessage = (
   child: ChildProcess,
   expectedType: string,
 ): Promise<void> =>
   new Promise((resolve, reject) => {
     let standardError = '';
-    child.stderr?.on('data', (chunk: Buffer) => {
+    const onStandardError = (chunk: Buffer) => {
       standardError += chunk.toString('utf8');
-    });
+    };
+    child.stderr?.on('data', onStandardError);
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(
+        new Error(
+          `worker did not send ${expectedType} within ${WORKER_MESSAGE_TIMEOUT_MILLISECONDS}ms: ${standardError}`,
+        ),
+      );
+    }, WORKER_MESSAGE_TIMEOUT_MILLISECONDS);
     const onMessage = (message: unknown) => {
       if (
         typeof message === 'object' &&
@@ -71,6 +82,8 @@ const waitForMessage = (
       );
     };
     const cleanup = () => {
+      clearTimeout(timeout);
+      child.stderr?.off('data', onStandardError);
       child.off('message', onMessage);
       child.off('error', onError);
       child.off('exit', onExit);
@@ -123,7 +136,7 @@ describe('JsonFileDatabase stale lock recovery', () => {
       await waitForMessage(holder, 'locked');
       await stopChild(holder);
 
-      const acquisitionStartedAt = Date.now();
+      const acquisitionStartedAt = performance.now();
       worker = fork(workerPath, [filePath, '1'], {
         execArgv: ['--import', 'tsx'],
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -132,7 +145,7 @@ describe('JsonFileDatabase stale lock recovery', () => {
       const done = waitForMessage(worker, 'done');
       worker.send({ type: 'start' });
       await done;
-      expect(Date.now() - acquisitionStartedAt).toBeLessThan(
+      expect(performance.now() - acquisitionStartedAt).toBeLessThan(
         DATABASE_FILE_LOCK_TIMING.acquisitionTimeoutMilliseconds + 2_000,
       );
       worker.disconnect();

@@ -54,4 +54,37 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: [
+      '**/*.test.{ts,tsx}',
+      '**/*.spec.{ts,tsx}',
+      'tests/e2e/**/*.{ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.length=0]",
+          message:
+            'Tests must use an explicit date or an injected application clock.',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          message:
+            'Tests must use a fixed application clock; use performance.now() only for bounded elapsed-time checks.',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.type='MemberExpression'][callee.object.property.name='clock'][callee.property.name='install'][arguments.length=0]",
+          message: 'Playwright clocks must install an explicit fixed time.',
+        },
+        {
+          selector: "CallExpression[callee.property.name='waitForTimeout']",
+          message:
+            'Wait for observable state instead of adding a Playwright wall-clock sleep.',
+        },
+      ],
+    },
+  },
 );

@@ -23,7 +23,11 @@ describe('getReversalEligibility', () => {
 
   it('fails closed when the deadline is malformed', () => {
     expect(
-      getReversalEligibility(true, 'not-a-date', new Date()),
+      getReversalEligibility(
+        true,
+        'not-a-date',
+        new Date('2026-07-24T12:00:00.000Z'),
+      ),
     ).toMatchObject({ eligible: false, reason: 'invalid-deadline' });
   });
 

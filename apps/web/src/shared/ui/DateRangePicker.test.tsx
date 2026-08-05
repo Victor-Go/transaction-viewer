@@ -20,6 +20,14 @@ const labels = {
   configurationError: 'Calendar configuration error',
 };
 
+const getDateButton = (date: string): HTMLButtonElement => {
+  const element = document.querySelector<HTMLButtonElement>(
+    `[data-date="${date}"]`,
+  );
+  if (element === null) throw new Error(`Date button ${date} was not rendered`);
+  return element;
+};
+
 const PickerHarness = ({
   initialValue = null,
   initialMonth = new CalendarDate(2026, 2, 1),
@@ -70,9 +78,7 @@ describe('DateRangePicker six-week calendar', () => {
       />,
     );
 
-    fireEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-04-30"]')!,
-    );
+    fireEvent.click(getDateButton('2026-04-30'));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith({
       start: new CalendarDate(2026, 4, 30),
@@ -81,9 +87,7 @@ describe('DateRangePicker six-week calendar', () => {
     expect(document.querySelector('[data-date="2026-04-30"]')).toHaveAttribute(
       'data-selection-start',
     );
-    fireEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-05-02"]')!,
-    );
+    fireEvent.click(getDateButton('2026-05-02'));
 
     expect(onChange).toHaveBeenCalledTimes(2);
     expect(onChange).toHaveBeenLastCalledWith({
@@ -100,9 +104,7 @@ describe('DateRangePicker six-week calendar', () => {
     expect(screen.getByText('Select a start date')).toBeInTheDocument();
     expect(screen.getByText('Select an end date')).toBeInTheDocument();
 
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-05-01"]')!,
-    );
+    await userEvent.click(getDateButton('2026-05-01'));
 
     expect(screen.getByText('May 1, 2026')).toBeInTheDocument();
     expect(screen.getByText('Select an end date')).toBeInTheDocument();
@@ -117,12 +119,8 @@ describe('DateRangePicker six-week calendar', () => {
       />,
     );
 
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-05-05"]')!,
-    );
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-05-02"]')!,
-    );
+    await userEvent.click(getDateButton('2026-05-05'));
+    await userEvent.click(getDateButton('2026-05-02'));
 
     expect(onChange).toHaveBeenLastCalledWith({
       start: new CalendarDate(2026, 5, 2),
@@ -138,14 +136,10 @@ describe('DateRangePicker six-week calendar', () => {
         onChange={onChange}
       />,
     );
-    const day = document.querySelector<HTMLElement>(
-      '[data-date="2026-05-03"]',
-    )!;
+    const day = getDateButton('2026-05-03');
 
     await userEvent.click(day);
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-05-03"]')!,
-    );
+    await userEvent.click(getDateButton('2026-05-03'));
 
     expect(onChange).toHaveBeenLastCalledWith({
       start: new CalendarDate(2026, 5, 3),
@@ -171,9 +165,7 @@ describe('DateRangePicker six-week calendar', () => {
       />,
     );
 
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-05-10"]')!,
-    );
+    await userEvent.click(getDateButton('2026-05-10'));
 
     expect(onChange).toHaveBeenLastCalledWith({
       start: new CalendarDate(2026, 5, 10),
@@ -264,9 +256,7 @@ describe('DateRangePicker six-week calendar', () => {
     expect(
       screen.getByRole('heading', { name: 'May 2026' }),
     ).toBeInTheDocument();
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-04-30"]')!,
-    );
+    await userEvent.click(getDateButton('2026-04-30'));
 
     expect(
       screen.getByRole('heading', { name: 'May 2026' }),
@@ -289,9 +279,7 @@ describe('DateRangePicker six-week calendar', () => {
 
     expect(document.querySelector('[data-date="2026-04-30"]')).toBeDisabled();
     expect(document.querySelector('[data-date="2026-05-01"]')).toBeEnabled();
-    fireEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-04-30"]')!,
-    );
+    fireEvent.click(getDateButton('2026-04-30'));
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -345,9 +333,7 @@ describe('DateRangePicker six-week calendar', () => {
 
   it('navigates by keyboard through an adjacent-month date', async () => {
     render(<PickerHarness initialMonth={new CalendarDate(2026, 5, 1)} />);
-    const mayFirst = document.querySelector<HTMLElement>(
-      '[data-date="2026-05-01"]',
-    )!;
+    const mayFirst = getDateButton('2026-05-01');
     mayFirst.focus();
 
     await userEvent.keyboard('{ArrowLeft}');
@@ -363,9 +349,7 @@ describe('DateRangePicker six-week calendar', () => {
         onChange={onChange}
       />,
     );
-    const mayFirst = document.querySelector<HTMLElement>(
-      '[data-date="2026-05-01"]',
-    )!;
+    const mayFirst = getDateButton('2026-05-01');
     mayFirst.focus();
 
     await userEvent.keyboard(
@@ -386,21 +370,24 @@ describe('DateRangePicker six-week calendar', () => {
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    const view = render(
-      <StrictMode>
-        <PickerHarness onChange={onChange} />
-      </StrictMode>,
-    );
+    try {
+      const view = render(
+        <StrictMode>
+          <PickerHarness onChange={onChange} />
+        </StrictMode>,
+      );
 
-    view.rerender(
-      <StrictMode>
-        <PickerHarness onChange={onChange} />
-      </StrictMode>,
-    );
+      view.rerender(
+        <StrictMode>
+          <PickerHarness onChange={onChange} />
+        </StrictMode>,
+      );
 
-    expect(onChange).not.toHaveBeenCalled();
-    expect(consoleError).not.toHaveBeenCalled();
-    consoleError.mockRestore();
+      expect(onChange).not.toHaveBeenCalled();
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it('navigates calendar pages without emitting a selected range', async () => {

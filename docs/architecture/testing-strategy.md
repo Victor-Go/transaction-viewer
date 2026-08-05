@@ -99,6 +99,17 @@ Use deterministic IDs and timestamps, focused builders, temporary directories
 for filesystem tests, and immutable checked-in seed data. Mock only at deliberate
 boundaries.
 
+Tests must not derive business expectations from the machine's current date,
+time, month, or timezone. Inject or mock application clocks in unit and
+integration tests. Browser tests must install an explicit fixed time before
+navigation and configure an explicit timezone. Prefer fake timers, deferred
+promises, or observable UI state over wall-clock sleeps.
+
+Real elapsed time is appropriate only when timing is itself the technical
+integration boundary, such as stale-lock recovery. Keep those waits bounded,
+measure elapsed duration with a monotonic clock, give child-process messages an
+independent timeout, and terminate every spawned process in `finally` cleanup.
+
 During development, run the smallest relevant test first, followed by affected
 workspace checks. Before completion, follow the repository verification
 expectations in the root `AGENTS.md`. Run Playwright when a covered complete

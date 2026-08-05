@@ -45,6 +45,10 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   readonly hint?: string | undefined;
 }
 
+interface CurrencyInputProps extends InputProps {
+  readonly maxMinorUnits?: number | undefined;
+}
+
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ id, error, hint, className, ...props }, ref) => (
     <input
@@ -66,10 +70,11 @@ export const TextInput = forwardRef<HTMLInputElement, InputProps>(
 );
 TextInput.displayName = 'TextInput';
 
-export const CurrencyInput = forwardRef<HTMLInputElement, InputProps>(
-  ({ onChange, ...props }, ref) => {
+export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
+  ({ onChange, maxMinorUnits, ...props }, ref) => {
     const acceptValidDraft = (event: ChangeEvent<HTMLInputElement>) => {
-      if (isValidCurrencyDraft(event.target.value)) onChange?.(event);
+      if (isValidCurrencyDraft(event.target.value, maxMinorUnits))
+        onChange?.(event);
     };
     return (
       <div className={styles.currency}>

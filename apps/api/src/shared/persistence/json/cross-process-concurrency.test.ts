@@ -1,4 +1,5 @@
 import { fork, type ChildProcess } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -37,6 +38,8 @@ const schema: JsonDatabaseRuntimeSchema<CounterCollections> = {
   parse: parseDocument,
 };
 
+const WORKER_MESSAGE_TIMEOUT_MILLISECONDS = 10_000;
+
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -53,9 +56,18 @@ const waitForMessage = (
 ): Promise<void> =>
   new Promise((resolve, reject) => {
     let standardError = '';
-    child.stderr?.on('data', (chunk: Buffer) => {
+    const onStandardError = (chunk: Buffer) => {
       standardError += chunk.toString('utf8');
-    });
+    };
+    child.stderr?.on('data', onStandardError);
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(
+        new Error(
+          `worker did not send ${expectedType} within ${WORKER_MESSAGE_TIMEOUT_MILLISECONDS}ms: ${standardError}`,
+        ),
+      );
+    }, WORKER_MESSAGE_TIMEOUT_MILLISECONDS);
     const onMessage = (message: unknown) => {
       if (
         typeof message === 'object' &&
@@ -80,6 +92,8 @@ const waitForMessage = (
       );
     };
     const cleanup = () => {
+      clearTimeout(timeout);
+      child.stderr?.off('data', onStandardError);
       child.off('message', onMessage);
       child.off('error', onError);
       child.off('exit', onExit);
@@ -89,6 +103,13 @@ const waitForMessage = (
     child.on('error', onError);
     child.on('exit', onExit);
   });
+
+const stopChild = async (child: ChildProcess | undefined): Promise<void> => {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const exited = once(child, 'exit');
+  child.kill('SIGKILL');
+  await exited;
+};
 
 describe('JsonFileDatabase cross-process locking', () => {
   it('prevents lost updates across two real Node.js processes', async () => {
@@ -116,40 +137,46 @@ describe('JsonFileDatabase cross-process locking', () => {
         execArgv: ['--import', 'tsx'],
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       });
-    const first = createWorker();
-    const second = createWorker();
+    let first: ChildProcess | undefined;
+    let second: ChildProcess | undefined;
+    try {
+      first = createWorker();
+      second = createWorker();
 
-    await Promise.all([
-      waitForMessage(first, 'ready'),
-      waitForMessage(second, 'ready'),
-    ]);
-    const firstDone = waitForMessage(first, 'done');
-    const secondDone = waitForMessage(second, 'done');
-    first.send({ type: 'start' });
-    second.send({ type: 'start' });
-    await Promise.all([firstDone, secondDone]);
-    first.disconnect();
-    second.disconnect();
+      await Promise.all([
+        waitForMessage(first, 'ready'),
+        waitForMessage(second, 'ready'),
+      ]);
+      const firstDone = waitForMessage(first, 'done');
+      const secondDone = waitForMessage(second, 'done');
+      first.send({ type: 'start' });
+      second.send({ type: 'start' });
+      await Promise.all([firstDone, secondDone]);
+      first.disconnect();
+      second.disconnect();
 
-    const rawDocument: unknown = JSON.parse(await readFile(filePath, 'utf8'));
-    expect(parseDocument(rawDocument).collections.counters).toEqual([
-      { id: 'shared', value: iterations * 2 },
-    ]);
+      const rawDocument: unknown = JSON.parse(await readFile(filePath, 'utf8'));
+      expect(parseDocument(rawDocument).collections.counters).toEqual([
+        { id: 'shared', value: iterations * 2 },
+      ]);
 
-    const reopened = new JsonFileDatabase({
-      filePath,
-      schema,
-      logger: NOOP_LOGGER,
-    });
-    await expect(
-      reopened.findOne('counters', (counter) => counter.id === 'shared'),
-    ).resolves.toEqual({ id: 'shared', value: iterations * 2 });
-    await expect(
-      reopened.updateWhere(
-        'counters',
-        () => false,
-        (counter) => counter,
-      ),
-    ).resolves.toEqual({ matchedCount: 0, updatedRecords: [] });
+      const reopened = new JsonFileDatabase({
+        filePath,
+        schema,
+        logger: NOOP_LOGGER,
+      });
+      await expect(
+        reopened.findOne('counters', (counter) => counter.id === 'shared'),
+      ).resolves.toEqual({ id: 'shared', value: iterations * 2 });
+      await expect(
+        reopened.updateWhere(
+          'counters',
+          () => false,
+          (counter) => counter,
+        ),
+      ).resolves.toEqual({ matchedCount: 0, updatedRecords: [] });
+    } finally {
+      await Promise.all([stopChild(first), stopChild(second)]);
+    }
   }, 30_000);
 });

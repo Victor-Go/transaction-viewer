@@ -31,15 +31,18 @@ describe('createRuntimeApp', () => {
   it('rejects invalid runtime configuration without exiting the process', async () => {
     const exit = vi.spyOn(process, 'exit');
 
-    await expect(
-      createRuntimeApp({
-        argv: ['--database-file'],
-        env: {},
-        logger: NOOP_LOGGER,
-      }),
-    ).rejects.toThrow();
-    expect(exit).not.toHaveBeenCalled();
-    exit.mockRestore();
+    try {
+      await expect(
+        createRuntimeApp({
+          argv: ['--database-file'],
+          env: {},
+          logger: NOOP_LOGGER,
+        }),
+      ).rejects.toThrow();
+      expect(exit).not.toHaveBeenCalled();
+    } finally {
+      exit.mockRestore();
+    }
   });
 
   it('creates and preserves the default demo database and composes a working route', async () => {

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRef, useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -74,5 +74,26 @@ describe('CurrencyInput', () => {
     expect(input).toHaveValue('25.99');
     await userEvent.type(input, '9');
     expect(input).toHaveValue('25.99');
+  });
+
+  it('rejects a draft above its configured maximum amount', () => {
+    const Harness = () => {
+      const [value, setValue] = useState('');
+      return (
+        <CurrencyInput
+          aria-label="Amount"
+          value={value}
+          maxMinorUnits={99_999_999_999}
+          onChange={(event) => setValue(event.target.value)}
+        />
+      );
+    };
+    render(<Harness />);
+    const input = screen.getByRole('textbox', { name: 'Amount' });
+
+    fireEvent.change(input, { target: { value: '999999999.99' } });
+    expect(input).toHaveValue('999999999.99');
+    fireEvent.change(input, { target: { value: '1000000000.00' } });
+    expect(input).toHaveValue('999999999.99');
   });
 });

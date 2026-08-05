@@ -1,5 +1,6 @@
 import {
   API_ERROR_CODES,
+  CREATE_TRANSACTION_MAX_MINOR_UNITS,
   createTransactionResponseSchema,
   reverseTransactionResponseSchema,
 } from '@card-platform/contracts';
@@ -120,6 +121,17 @@ describe('POST transaction commands', () => {
       'invalid body',
       'key',
       { merchantName: 'A', amount: { minorUnits: 0, currency: 'CAD' } },
+    ],
+    [
+      'amount above the maximum',
+      'key',
+      {
+        merchantName: 'A',
+        amount: {
+          minorUnits: CREATE_TRANSACTION_MAX_MINOR_UNITS + 1,
+          currency: 'CAD',
+        },
+      },
     ],
     [
       'client status',

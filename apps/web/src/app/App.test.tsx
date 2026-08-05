@@ -1,11 +1,50 @@
 import type { TransactionDto } from '@card-platform/contracts';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { server } from '../test/server';
 import { App } from './App';
+
+vi.mock('@internationalized/date', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@internationalized/date')>();
+  return {
+    ...actual,
+    today: () => actual.parseDate('2026-07-27'),
+  };
+});
+
+const deferred = () => {
+  let resolve: (() => void) | undefined;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return {
+    promise,
+    resolve: () => {
+      if (resolve === undefined)
+        throw new Error('Deferred was not initialized');
+      resolve();
+    },
+  };
+};
+
+const getDateButton = (date: string): HTMLButtonElement => {
+  const element = document.querySelector<HTMLButtonElement>(
+    `[data-date="${date}"]`,
+  );
+  if (element === null) throw new Error(`Date button ${date} was not rendered`);
+  return element;
+};
 
 const transaction = (
   status: TransactionDto['status'] = 'posted',
@@ -107,12 +146,15 @@ describe('App', () => {
       id: 'txn-002',
       merchantName: 'Second Merchant',
     };
+    const firstMayRespond = deferred();
+    const firstResponded = deferred();
     server.use(
       http.get('/api/v1/accounts/acc_demo/transactions', () =>
         HttpResponse.json(listResponse([transaction(), second])),
       ),
       http.get('/api/v1/accounts/acc_demo/transactions/txn-001', async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await firstMayRespond.promise;
+        firstResponded.resolve();
         return HttpResponse.json({ data: transaction() });
       }),
       http.get('/api/v1/accounts/acc_demo/transactions/txn-002', () =>
@@ -140,7 +182,10 @@ describe('App', () => {
     expect(
       await within(currentDialog).findByText('Second Merchant'),
     ).toBeInTheDocument();
-    await new Promise((resolve) => setTimeout(resolve, 120));
+    await act(async () => {
+      firstMayRespond.resolve();
+      await firstResponded.promise;
+    });
     expect(
       within(currentDialog).queryByText('Northern Grocer'),
     ).not.toBeInTheDocument();
@@ -185,10 +230,18 @@ describe('App', () => {
 
   it('opens Create programmatically and reports field validation errors', async () => {
     window.history.replaceState({}, '', '/accounts/acc_demo/transactions');
+    let createRequests = 0;
     server.use(
       http.get('/api/v1/accounts/acc_demo/transactions', () =>
         HttpResponse.json(listResponse([])),
       ),
+      http.post('/api/v1/accounts/acc_demo/transactions', () => {
+        createRequests += 1;
+        return HttpResponse.json(
+          { data: transaction('pending') },
+          { status: 201 },
+        );
+      }),
     );
     render(<App />);
 
@@ -205,10 +258,30 @@ describe('App', () => {
 
     expect(screen.getByText('Enter a merchant name.')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'Enter a positive CAD amount with up to two decimal places.',
-      ),
+      screen.getByText('Enter a CAD amount from $0.01 to $999,999,999.99.'),
     ).toBeInTheDocument();
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Merchant name' }),
+      'Northern Grocer',
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'Amount (CAD)' }), {
+      target: { value: '1000000000.00' },
+    });
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Create purchase' }),
+    );
+
+    expect(
+      screen.getByText('Enter a CAD amount from $0.01 to $999,999,999.99.'),
+    ).toBeInTheDocument();
+    expect(createRequests).toBe(0);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Create transaction' }),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it('opens an AlertDialog above Detail and one Escape closes only confirmation', async () => {
@@ -615,14 +688,10 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next month' }));
     expect(requests).toHaveLength(1);
 
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-07-20"]')!,
-    );
+    await userEvent.click(getDateButton('2026-07-20'));
     expect(requests).toHaveLength(1);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-07-21"]')!,
-    );
+    await userEvent.click(getDateButton('2026-07-21'));
     expect(requests).toHaveLength(1);
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
 
@@ -636,12 +705,12 @@ describe('App', () => {
     expect(requests[1]?.searchParams.get('pageToken')).toBeNull();
     expect(
       screen.getByRole('button', {
-        name: 'Edit date search: Jul 20–21',
+        name: 'Edit date search: Jul 20 – 21',
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
-        name: 'Clear date search: Jul 20–21',
+        name: 'Clear date search: Jul 20 – 21',
       }),
     ).toBeInTheDocument();
 
@@ -668,9 +737,7 @@ describe('App', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Search by date' }),
     );
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-07-20"]')!,
-    );
+    await userEvent.click(getDateButton('2026-07-20'));
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(window.location.search).toBe('');
@@ -695,9 +762,7 @@ describe('App', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Search by date' }),
     );
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-07-20"]')!,
-    );
+    await userEvent.click(getDateButton('2026-07-20'));
     await userEvent.keyboard('{Escape}');
     await waitFor(() =>
       expect(
@@ -750,7 +815,7 @@ describe('App', () => {
     await waitFor(() => expect(requests).toHaveLength(2));
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Clear date search: Jul 20–21',
+        name: 'Clear date search: Jul 20 – 21',
       }),
     );
 
@@ -789,7 +854,7 @@ describe('App', () => {
     ).not.toBeInTheDocument();
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Edit date search: Jul 20–21',
+        name: 'Edit date search: Jul 20 – 21',
       }),
     );
 
@@ -803,25 +868,21 @@ describe('App', () => {
     expect(requests).toHaveLength(1);
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Edit date search: Jul 20–21',
+        name: 'Edit date search: Jul 20 – 21',
       }),
     );
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-07-22"]')!,
-    );
+    await userEvent.click(getDateButton('2026-07-22'));
     expect(screen.getByText('July 22, 2026')).toBeInTheDocument();
     expect(screen.getByText('Select an end date')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
     expect(requests).toHaveLength(1);
-    await userEvent.click(
-      document.querySelector<HTMLElement>('[data-date="2026-07-23"]')!,
-    );
+    await userEvent.click(getDateButton('2026-07-23'));
     expect(screen.getByRole('button', { name: 'Search' })).toBeEnabled();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(requests).toHaveLength(1);
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Clear date search: Jul 20–21',
+        name: 'Clear date search: Jul 20 – 21',
       }),
     );
     await waitFor(() => expect(requests).toHaveLength(2));
@@ -843,7 +904,7 @@ describe('App', () => {
 
     expect(
       await screen.findByText(
-        'No posted Transactions were found from Jul 20–21',
+        'No posted Transactions were found from Jul 20 – 21',
       ),
     ).toBeInTheDocument();
     expect(

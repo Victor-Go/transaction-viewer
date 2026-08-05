@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { createTransactionRequestSchema } from './create-transaction.ts';
+import {
+  CREATE_TRANSACTION_MAX_MINOR_UNITS,
+  createTransactionRequestSchema,
+} from './create-transaction.ts';
 import { idempotencyKeySchema } from './idempotency-key.ts';
 import { reverseTransactionPathParamsSchema } from './reverse-transaction.ts';
 import { transactionDtoSchema } from './transaction.ts';
@@ -20,6 +23,18 @@ describe('createTransactionRequestSchema', () => {
     ).toEqual(validCreateRequest);
   });
 
+  it('accepts the maximum purchase amount', () => {
+    expect(
+      createTransactionRequestSchema.safeParse({
+        ...validCreateRequest,
+        amount: {
+          minorUnits: CREATE_TRANSACTION_MAX_MINOR_UNITS,
+          currency: 'CAD',
+        },
+      }).success,
+    ).toBe(true);
+  });
+
   it.each([
     { ...validCreateRequest, status: 'posted' },
     { ...validCreateRequest, createdAt: '2026-01-01T00:00:00.000Z' },
@@ -28,17 +43,20 @@ describe('createTransactionRequestSchema', () => {
     expect(createTransactionRequestSchema.safeParse(body).success).toBe(false);
   });
 
-  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
-    'rejects invalid minor units %j',
-    (minorUnits) => {
-      expect(
-        createTransactionRequestSchema.safeParse({
-          ...validCreateRequest,
-          amount: { minorUnits, currency: 'CAD' },
-        }).success,
-      ).toBe(false);
-    },
-  );
+  it.each([
+    0,
+    -1,
+    1.5,
+    CREATE_TRANSACTION_MAX_MINOR_UNITS + 1,
+    Number.MAX_SAFE_INTEGER + 1,
+  ])('rejects invalid minor units %j', (minorUnits) => {
+    expect(
+      createTransactionRequestSchema.safeParse({
+        ...validCreateRequest,
+        amount: { minorUnits, currency: 'CAD' },
+      }).success,
+    ).toBe(false);
+  });
 
   it('rejects currencies other than CAD', () => {
     expect(

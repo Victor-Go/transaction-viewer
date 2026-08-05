@@ -15,6 +15,7 @@ describe('parseCadAmountInput', () => {
     ['25.99', 2599],
     ['25,99', 2599],
     ['0.01', 1],
+    ['999999999.99', 99999999999],
   ])('parses %s exactly as %d minor units', (input, minorUnits) => {
     expect(parseCadAmountInput(input)).toEqual({
       success: true,
@@ -33,6 +34,7 @@ describe('parseCadAmountInput', () => {
     '2.',
     '.25',
     '12 dollars',
+    '1000000000.00',
     '90071992547409.92',
   ])('rejects the invalid or unsafe amount %j', (input) => {
     expect(parseCadAmountInput(input).success).toBe(false);
@@ -57,7 +59,7 @@ describe('transaction formatting', () => {
       new CalendarDate(2026, 6, 1),
       new CalendarDate(2026, 7, 24),
       2026,
-      'Jun 1–Jul 24',
+      'Jun 1 – Jul 24',
     ],
     [
       'historical English range',
@@ -65,7 +67,7 @@ describe('transaction formatting', () => {
       new CalendarDate(2025, 6, 1),
       new CalendarDate(2025, 7, 24),
       2026,
-      'Jun 1–Jul 24, 2025',
+      'Jun 1 – Jul 24, 2025',
     ],
     [
       'cross-year English range',
@@ -73,7 +75,7 @@ describe('transaction formatting', () => {
       new CalendarDate(2025, 12, 31),
       new CalendarDate(2026, 1, 2),
       2026,
-      'Dec 31, 2025–Jan 2, 2026',
+      'Dec 31, 2025 – Jan 2, 2026',
     ],
     [
       'current-year French range',
@@ -81,7 +83,7 @@ describe('transaction formatting', () => {
       new CalendarDate(2026, 6, 1),
       new CalendarDate(2026, 7, 24),
       2026,
-      '1 juin – 24 juill.',
+      '1 juin – 24 juill.',
     ],
     [
       'historical French range',
@@ -89,7 +91,7 @@ describe('transaction formatting', () => {
       new CalendarDate(2025, 6, 1),
       new CalendarDate(2025, 7, 24),
       2026,
-      '1 juin – 24 juill. 2025',
+      '1 juin – 24 juill. 2025',
     ],
     [
       'cross-year French range',
@@ -97,7 +99,7 @@ describe('transaction formatting', () => {
       new CalendarDate(2025, 12, 31),
       new CalendarDate(2026, 1, 2),
       2026,
-      '31 déc. 2025 – 2 janv. 2026',
+      '31 déc. 2025 – 2 janv. 2026',
     ],
   ])(
     'formats an applied %s with an injected current year',

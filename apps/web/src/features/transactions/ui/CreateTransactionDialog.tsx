@@ -1,5 +1,8 @@
-import { createTransactionRequestSchema } from '@card-platform/contracts';
-import { useRef, useState, type FormEvent } from 'react';
+import {
+  CREATE_TRANSACTION_MAX_MINOR_UNITS,
+  createTransactionRequestSchema,
+} from '@card-platform/contracts';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -65,8 +68,7 @@ export const CreateTransactionDialog = ({
       : t('create.uncertainNetwork');
   };
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const submit = async () => {
     if (submitting) return;
 
     const amountResult = parseCadAmountInput(amount);
@@ -151,7 +153,10 @@ export const CreateTransactionDialog = ({
       <form
         id="create-transaction-form"
         className={styles.form}
-        onSubmit={(event) => void submit(event)}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
         noValidate
       >
         {requestError ? (
@@ -181,6 +186,7 @@ export const CreateTransactionDialog = ({
           <CurrencyInput
             id="transaction-amount"
             value={amount}
+            maxMinorUnits={CREATE_TRANSACTION_MAX_MINOR_UNITS}
             placeholder={t('create.amountPlaceholder')}
             error={errors.amount}
             hint={t('create.amountHint')}

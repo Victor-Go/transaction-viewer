@@ -28,3 +28,8 @@ generation and persistence pagination remain internal API responsibilities.
 Account ID and Transaction ID schemas and returns `{ data: TransactionDto }`.
 The Create and Reverse responses reuse the same Transaction DTO rather than
 defining endpoint-specific transaction shapes.
+
+Create Transaction accepts a positive integer CAD amount no greater than
+`99,999,999,999` minor units (`$999,999,999.99`). The exported
+`CREATE_TRANSACTION_MAX_MINOR_UNITS` constant is the shared API and Web source
+of truth for that request limit.
